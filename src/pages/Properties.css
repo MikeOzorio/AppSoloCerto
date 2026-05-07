@@ -1,0 +1,61 @@
+.properties-page { padding-top: 2rem; padding-bottom: 4rem; }
+.properties-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
+
+.property-form { margin-bottom: 2rem; }
+.property-form h3 { color: var(--color-primary); margin-bottom: 1.5rem; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+
+.talhoes-section { margin-top: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem; }
+.talhoes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.talhoes-header h4 { color: var(--color-text); }
+
+.talhao-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.talhao-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.talhao-top h5 { color: var(--color-primary); font-size: 0.95rem; }
+
+.clones-in-talhao { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--color-border); }
+.clones-talhao-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--color-text-muted); }
+
+.clone-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
+.clone-qty { width: 80px !important; }
+
+.form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
+
+/* Property Cards */
+.property-card { cursor: pointer; margin-bottom: 1rem; transition: transform 0.2s, box-shadow 0.2s; }
+.property-card:hover { transform: translateY(-2px); box-shadow: 0 8px 15px -3px rgba(0,0,0,0.08); }
+
+.property-card-header { display: flex; justify-content: space-between; align-items: center; }
+.property-card-header h3 { display: flex; align-items: center; gap: 0.5rem; color: var(--color-primary); }
+
+.talhao-count {
+  font-size: 0.75rem;
+  background: rgba(139,90,43,0.1);
+  color: var(--color-primary);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
+.property-details { margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 1rem; cursor: default; }
+
+.talhao-summary { background: var(--color-surface); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 0.75rem; }
+.talhao-summary strong { color: var(--color-text); }
+.talhao-meta { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--color-text-muted); }
+.talhao-meta span { display: flex; align-items: center; gap: 0.25rem; }
+.talhao-clones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; text-align: center; border: 2px dashed var(--color-border); }
+
+@media (max-width: 768px) {
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,101 @@
+Proprietário: JOSE ANTONIO OZORIO CPF: 009.692.047-52
+ITAPERORAMA BAIXA - ANCHIETA - ES
+04/03/2022	02/03/2022
+SOLO
+9221 - SEC DE AGR DE ANCHIETA
+Propriedade:
+Solicitante:
+Material Analisado:
+Data de Entrada: Data de Emissão:
+d150cdcc	Chave para validação:
+3195/2022 AMOSTRA - CAFE NOVO
+AMOSTRA - CAFE VELHO	3194/2022
+3194/202 3195/202
+2,1 2,2
+5,96
+1,16
+4,80
+1,20
+0,4
+0,7
+24
+2,0
+4,7
+16
+ns
+ns
+ns
+81
+20,1
+7
+12
+1
+20
+252
+0,3
+4,6
+0,2
+0,30
+6,25
+1,75
+4,50
+0,90
+0,6
+1,1
+20
+2,0
+4,8
+14
+ns
+ns
+ns
+72
+14,4
+10
+18
+1
+28
+179
+0,3
+4,5
+0,2
+0,40
+M.O. Mat.Orgânica(Oxi-Red.)
+pH (água - Relação 1:2,5)
+P (Mehlich-1)
+K (Mehlich-1)
+(Kcl-1 mol/L)	Ca
+unid.
+Mg (Kcl-1 mol/L)
+Al (Kcl-1 mol/L)
+H + Al (Acetato de cálcio)
+S.B. (Soma de bases)
+C.T.C. (C.T.C.)
+V% (Saturação de bases) %
+%K C.T.C. (% de K na C.T.C.) %
+(% de Ca na C.T.C.) %	%Ca C.T.C.
+(% de Mg na C.T.C.) %	%Mg C.T.C.
+(% de Al na C.T.C.) %	%Al C.T.C.
+(% H + Al na C.T.C.) %	%H+Al C.T.C.
+P ( Resina ) mg/dm3
+P-rem. (Fósforo remanescente) mg/L
+S (Fosfato monocálcico ác. acético) mg/dm3
+B (Água quente) mg/dm3
+Zn (Mehlich-1) mg/dm3
+Mn (Mehlich-1) mg/dm3
+Cu (Mehlich-1) mg/dm3
+mg/dm3	(Mehlich-1)	Fe
+Alyson Perígolo Lomeu MG 91355D
+(Mehlich-1) mg/dm3	Na
+cmolc/dm3
+cmolc/dm3
+cmolc/dm3
+cmolc/dm3
+cmolc/dm3
+cmolc/dm3
+dag/dm3
+mg/dm3
+mg/dm3
+
+-- 1 of 1 --
+

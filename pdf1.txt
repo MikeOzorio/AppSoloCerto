@@ -1,0 +1,275 @@
+CLIENTE : MIKE CRISTIAN LAYBER OZORIO
+ENDEREÇO:
+PROPRIEDADE: NAO INFORMADA
+TELEFONE: ( ) -
+MUNICÍPIO: SERRA - ES
+LABORATÓRIO DE ANÁLISE AGRÔNOMICA,
+AMBIENTAL E CONSULTORIA LTDA
+Avenida: Prefeito Samuel Batista Cruz, 1.099 - Centro - Linhares - ES
+CEP: 29.900-100 - Telefax: (27)3371-3460 - Site: www.fullin.com.br
+E-mail: atendimento@fullin.com.br
+ANÁLISE DE SOLOS
+DATA DE ENTRADA:
+CULTURA:
+EMAIL: mikelayber@gmail.com
+05/02/2026
+MATRÍCULA:
+ÁREA: -
+INSCRIÇÃO ESTADUAL:
+CPF/CNPJ : 135.007.357-11
+Amostra 01
+PARÂMETRO ANALISADO
+IDENTIFICAÇÃO DA AMOSTRA / RESULTADO DA ANÁLISE
+2800/2026
+UNIDADE
+Fósforo Mehlich-1 2	mg/dm3
+Fósforo Remanescente 12	mg/L
+Fósforo Resina 2	mg/dm3
+Potássio 18	mg/dm3
+Enxofre 8	mg/dm3
+Cálcio 0,24	cmol c/dm3
+Magnésio 0,09	cmol c/dm3
+Alumínio (Acidez Trocável) 0,9	cmol c/dm3
+Hidrogênio Extraível (H+) 4,9	cmol c/cm3
+H+Al (Acidez Potencial) 5,8	cmol c/dm3
+pH em H2O (Acidez Ativa) 4,80	-
+pH SMP 5,70	-
+Matéria Orgânica 2,13	dag/dm3
+Ferro 373,0	mg/dm3
+Zinco 0,3	mg/dm3
+Cobre 0,2	mg/dm3
+Manganês 2,6	mg/dm3
+Boro 0,27	mg/dm3
+Sódio 6,0	mg/dm3
+Relação Ca/Mg 2,67	-
+Relação Ca/K 5,20	-
+Relação Mg/K 1,95	-
+Sat. Ca na CTC (T) 3,88	%
+Sat. Mg na CTC (T) 1,46	%
+Sat. H+ na CTC (T) 79,29	%
+Sat. K na CTC (T) 0,75	%
+Indice Saturação Sódio (INa) 0,42	%
+Soma de Bases (SB) 0,40	cmolc/dm3
+CTC efetiva (t) 1,30	cmolc/dm3
+CTC a pH 7,0 (T) 6,18	cmolc/dm3
+Responsável Técnico
+ELI ANTONIO FULLIN
+OBSERVAÇÕES IMPORTANTES: Linhares-ES,
+Para verificar os níveis de referência de alguns dos parâmetros acima, consulte o verso deste formulário.
+- A análise depende da qualidade da amostragem;
+- A alteração indevida deste documento estará sujeita à ação judicial;
+- A FULLIN é uma empresa CERTIFICADA, conforme Norma 9001:2015;
+09/02/2026
+P Reman: Sol. Equilibrio (CaCl2 0,01mol/L) P Resina: IAC - Resina S: Ca(H2PO4) 0,01mol/L
+Ca, Mg, Al: KCl 0,01mol/L H+Al, pH SMP: Sol. Tampão SMP
+P, K, Na, Fe, Zn, Cu, Mn: Mehlich- HCl 0,05 mol/L + H2SO4 0,025 mol/L
+pH H2O: H2O 1:2,5
+B: BaCl2 0,125%	Mat. Org: Na2Cr2O7 4 mol/L + H2SO4 10 mol/L	pH CaCl2: Sol. CaCl2 0,01mol/L
+Cl: H2O 1:5
+Referências Metodologicas: EMBRAPA / IAC / UFU
+Extrações utilizadas:
+CREA 3706 D/ES
+
+-- 1 of 3 --
+
+CLIENTE : MIKE CRISTIAN LAYBER OZORIO
+ENDEREÇO:
+PROPRIEDADE: NAO INFORMADA
+TELEFONE: ( ) -
+MUNICÍPIO: SERRA - ES
+LABORATÓRIO DE ANÁLISE AGRÔNOMICA,
+AMBIENTAL E CONSULTORIA LTDA
+Avenida: Prefeito Samuel Batista Cruz, 1.099 - Centro - Linhares - ES
+CEP: 29.900-100 - Telefax: (27)3371-3460 - Site: www.fullin.com.br
+E-mail: atendimento@fullin.com.br
+ANÁLISE DE SOLOS
+DATA DE ENTRADA:
+CULTURA:
+EMAIL: mikelayber@gmail.com
+05/02/2026
+MATRÍCULA:
+ÁREA: -
+INSCRIÇÃO ESTADUAL:
+CPF/CNPJ : 135.007.357-11
+Amostra 01
+PARÂMETRO ANALISADO
+IDENTIFICAÇÃO DA AMOSTRA / RESULTADO DA ANÁLISE
+2800/2026
+UNIDADE
+Sat. Alumínio (m) 69,23	%
+Saturação de bases (V) 6,47	%
+Responsável Técnico
+ELI ANTONIO FULLIN
+OBSERVAÇÕES IMPORTANTES: Linhares-ES,
+Para verificar os níveis de referência de alguns dos parâmetros acima, consulte o verso deste formulário.
+- A análise depende da qualidade da amostragem;
+- A alteração indevida deste documento estará sujeita à ação judicial;
+- A FULLIN é uma empresa CERTIFICADA, conforme Norma 9001:2015;
+09/02/2026
+P Reman: Sol. Equilibrio (CaCl2 0,01mol/L) P Resina: IAC - Resina S: Ca(H2PO4) 0,01mol/L
+Ca, Mg, Al: KCl 0,01mol/L H+Al, pH SMP: Sol. Tampão SMP
+P, K, Na, Fe, Zn, Cu, Mn: Mehlich- HCl 0,05 mol/L + H2SO4 0,025 mol/L
+pH H2O: H2O 1:2,5
+B: BaCl2 0,125%	Mat. Org: Na2Cr2O7 4 mol/L + H2SO4 10 mol/L	pH CaCl2: Sol. CaCl2 0,01mol/L
+Cl: H2O 1:5
+Referências Metodologicas: EMBRAPA / IAC / UFU
+Extrações utilizadas:
+CREA 3706 D/ES
+
+-- 2 of 3 --
+
+VALORES GERAIS DE REFERÊNCIA PARA INTERPRETAÇÃO DA ANÁLISE DE SOLOS
+PARÂMETRO UNIDADE* CLASSIFICAÇÃO**
+Muito Baixo Baixo Médio Alto Muito Alto
+Fósforo - Mehlich- 1
+-Cultura perene
+- Solo argiloso
+- Solo textura média
+- Solo arenoso
+mg/dm3
+mg/dm3
+mg/dm3
+-Cultura Anual
+- Solo argiloso
+- Solo textura média
+- Solo arenoso
+mg/dm3
+mg/dm3
+mg/dm3
+- Hortaliças
+- Solo argiloso
+- Solo textura média
+- Solo arenoso
+mg/dm3
+mg/dm3
+mg/dm3
+-
+-
+-
+-
+-
+-
+-
+-
+-
+< 5
+< 10
+< 20
+< 20
+< 40
+< 60
+< 30
+< 60
+< 100
+5 - 10
+10 - 20
+20 - 30
+20 - 40
+40 - 60
+60 - 80
+30 - 60
+60 - 100
+100 - 150
+> 10
+> 20
+> 30
+> 40
+> 60
+> 80
+> 60
+> 100
+> 150
+-
+-
+-
+-
+-
+-
+-
+-
+-
+- Fósforo-resina
+- Plantas florestais
+- Culturas perenes
+- Culturas anuais
+mg/dm3
+mg/dm3
+mg/dm3
+< 3
+< 6
+< 7
+3 a 5
+6 a 12
+7 a 15
+6 a 8
+13 a 30
+16 a 40
+9 a 16
+31 a 60
+41 a 80
+> 16
+> 60
+> 80
+- Hortaliças mg/dm3 < 11 11 a 25 26 a 60 61 a 120 > 120
+Enxofre mg/dm3 - < 5 5 - 10 > 10 -
+- Culturas perene/anual
+- Hortaliças
+Potássio mg/dm3
+mg/dm3 -
+- < 60 60 - 150 > 150 -
+< 80 80 - 200 > 200 -
+Cálcio cmolc/dm3 - < 1,5 1,5 - 4,0 > 4,0 -
+Magnésio cmolc/dm3 - < 0,6 0,6 - 1,0 > 1,0 -
+Acidez Trocável (Al) cmolc/dm3 - < 0,4 0,4 - 1,0 > 1,0 -
+Acidez Potencial (H + Al) cmolc/dm3 - < 2,6 2,6 - 5,0 > 5,0 -
+Matéria Orgânica (MO) dag/dm3 - < 1,6 1,6 - 3,0 > 3,0 -
+Ferro mg/dm3 < 20 21 - 31 31 - 200 > 200 -
+Zinco mg/dm3 < 4,1 4,1 - 6,9 7,0 - 40,0 > 40,0 -
+Cobre mg/dm3 < 0,6 0,6 - 1,5 1,6 - 20,0 > 20,0 -
+Manganês mg/dm3 < 6 6 - 11 12 - 130 > 130 -
+Boro mg/dm3 <= 0,15 0,16 - 0,35 0,36 - 0,60 0,61 - 0,90 > 0,90
+Cloro mg/dm3 - < 25 - - -
+Silício mg/dm3 - < 8,0 - - -
+Soma de Bases ( SB ) cmolc/dm3 - < 2,1 2,1 - 5,0 > 5,0 -
+CTC Efetiva ( t ) cmolc/dm3 - < 2,6 2,6 - 6,0 > 6,0 -
+CTC a pH 7,0 ( T ) dag/dm3 - < 4,6 4,6 - 10,0 > 10,0 -
+Saturação de Alumínio ( m ) % - < 21 21 - 40 41 - 60 -
+Saturação de Bases ( V ) % < 26 26 - 50 51 - 70 71 - 90 -
+Saturação de Ca na CTC a pH 7,0 % < 40 40 - 60 60 - 65 > 65 -
+Saturação de Mg na CTC a pH 7,0 % < 7 7 - 10 10 - 15 > 15 -
+Saturação de K na CTC a pH 7,0 % < 3 3 - 5 5 > 5 -
+Índice de saturação de Na (INa) % - < 20,0 - - -
+Relação Ca:Mg - - - 4 : 1 - -
+Relação Ca:K - - - 15 : 1 - -
+Relação Mg:K - - - 5 : 1 - -
+Fósforo - remanescente
+mg/dm3
+Estimativa da textura do solo
+Argilosa Média Arenosa
+0 - 10 10 - 40 40 - 60
+pH em água - Elevada Fraca
+<= 5,0 7,1 - 7,8
+Média
+5,1 - 6,0
+Acidez
+Fraca
+6,1 - 6,9 7,0
+Neutro Alcalinidade
+Elevada
+> 7,8
+pH em CaCl2 - Muito alta Muito Baixa
+< 4,4 > 6,0
+Alta
+4,4 - 5,0
+Acidez
+Média
+5,1 - 5,5
+Baixa
+5,6 - 6,0
+* Equivalência entre unidades: mg/dm 3 = ppm; cmol c/dm3 = meq/100 cm3 = mmolc/dm3 ÷ 10; dag/dm3 = %
+** As informações acima são baseadas nos Manuais de Recomendação de Adubação dos Estados do Espírito Santo (2001 a 2007), Minas Gerais
+(1999) e São Paulo (1996), além de informações desenvolvidas pelos Profissionais da FULLIN;
+OBS.: Para culturas irrigadas de elevada produtividade, os valores acima devem ser reconsiderados em função da cultura e dos investimentos.
+
+-- 3 of 3 --
+

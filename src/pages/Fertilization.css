@@ -1,0 +1,230 @@
+.fertilization-page {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.fert-header {
+  margin-bottom: 2rem;
+}
+
+.fert-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 900px) {
+  .fert-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.fert-card {
+  padding: 1.5rem;
+}
+
+.fert-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.fert-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-primary-dark);
+  margin-bottom: 1.5rem;
+}
+
+.multi-fert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.multi-fert-row {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  background-color: var(--color-surface);
+}
+
+.multi-fert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.multi-fert-header h4 {
+  font-size: 0.9rem;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.multi-fert-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.multi-fert-summary {
+  background-color: rgba(46, 139, 87, 0.05);
+  border: 1px solid rgba(46, 139, 87, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.multi-fert-summary strong {
+  color: var(--color-accent);
+}
+
+.btn-add-nut {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-primary);
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.btn-add-nut:hover {
+  text-decoration: underline;
+}
+
+.percentage-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.percentage-badge.valid {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+
+.percentage-badge.invalid {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.months-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.month-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.month-item.selected {
+  border-color: var(--color-primary);
+  background-color: rgba(139, 90, 43, 0.03);
+}
+
+.month-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.month-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.month-input {
+  width: 100%;
+  padding-right: 2rem;
+  text-align: right;
+}
+
+.month-unit {
+  position: absolute;
+  right: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.results-section {
+  padding: 2rem;
+  margin-top: 2rem;
+}
+
+.timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.timeline-item {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  text-align: center;
+  border-top: 4px solid var(--color-primary);
+}
+
+.timeline-month {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.5rem;
+}
+
+.timeline-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgba(139, 90, 43, 0.05);
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.breakdown-name {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.breakdown-val {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.breakdown-val span {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
