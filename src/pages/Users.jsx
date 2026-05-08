@@ -15,12 +15,12 @@ export default function Users() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     
-    const res = createUser(name, email, password, role, trialDays);
+    const res = await createUser(name, email, password, role, trialDays);
     if (res.success) {
       setSuccess('Usuário criado com sucesso!');
       setName(''); setEmail(''); setPassword(''); setRole('user'); setTrialDays(7);

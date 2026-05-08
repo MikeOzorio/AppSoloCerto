@@ -29,7 +29,7 @@ const MONTHS = [
 ];
 
 export default function Fertilization() {
-  const { recommendations, properties, addCropPlan } = useSoil();
+  const { recommendations, properties, addCropPlan, fertilizationMonths } = useSoil();
   
   const [selectedRecId, setSelectedRecId] = useState('none');
   const [cropYear, setCropYear] = useState(new Date().getFullYear().toString());
@@ -41,12 +41,8 @@ export default function Fertilization() {
   const [selectedMonths, setSelectedMonths] = useState({});
 
   useEffect(() => {
-    // Read global months setting
-    const saved = localStorage.getItem('@SoloCerto:fertilizationMonths');
-    if (saved) {
-      try { setSelectedMonths(JSON.parse(saved)); } catch {}
-    }
-  }, []);
+    setSelectedMonths(fertilizationMonths || {});
+  }, [fertilizationMonths]);
 
   const handleRecChange = (recId) => {
     setSelectedRecId(recId);

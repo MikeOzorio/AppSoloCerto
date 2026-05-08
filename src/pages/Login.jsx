@@ -4,19 +4,19 @@ import { Coffee, LogIn, AlertCircle } from 'lucide-react';
 import './Login.css';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, authError, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!email || !password) {
       setError('Preencha todos os campos.');
       return;
     }
-    const result = login(email, password);
+    const result = await login(email, password);
     if (!result.success) {
       setError(result.error);
     }
@@ -32,9 +32,9 @@ export default function Login() {
         </div>
         
         <form onSubmit={handleSubmit} className="login-form">
-          {error && (
+          {(authError || error) && (
             <div className="login-error">
-              <AlertCircle size={16} /> {error}
+              <AlertCircle size={16} /> {authError || error}
             </div>
           )}
           
@@ -61,13 +61,13 @@ export default function Login() {
             />
           </div>
           
-          <button type="submit" className="btn btn-primary login-btn">
-            <LogIn size={18} /> Entrar
+          <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
+            <LogIn size={18} /> {loading ? 'Carregando...' : 'Entrar'}
           </button>
         </form>
 
         <p className="login-footer text-muted">
-          Acesso inicial: admin@coffeti.com / admin123
+          Acesso pelo Supabase Auth. Crie o primeiro usuário no painel do Supabase.
         </p>
       </div>
     </div>

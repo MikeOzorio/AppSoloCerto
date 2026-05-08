@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from './AuthContext';
 
 const SoilContext = createContext();
 
@@ -78,26 +80,105 @@ const defaultRecommendations = [
   }
 ];
 
-function useLocalState(key, defaultValue) {
-  const [state, setState] = useState(() => {
-    const saved = localStorage.getItem(key);
-    if (saved) { try { return JSON.parse(saved); } catch { return defaultValue; } }
-    return defaultValue;
-  });
-  useEffect(() => { localStorage.setItem(key, JSON.stringify(state)); }, [state, key]);
-  return [state, setState];
+const DATA_KEYS = {
+  parameters: 'parameters_v5',
+  history: 'history',
+  clones: 'clones',
+  properties: 'properties',
+  recommendations: 'recommendations',
+  cropPlans: 'cropPlans',
+  fertilizationMonths: 'fertilizationMonths'
+};
+
+const cloneValue = (value) => JSON.parse(JSON.stringify(value));
+
+const normalizeForJson = (value) => JSON.parse(JSON.stringify(value, (_key, val) => {
+  if (typeof val === 'number' && !Number.isFinite(val)) return null;
+  return val;
+}));
+
+async function loadUserData(userId) {
+  if (!supabase || !userId) return {};
+  const { data, error } = await supabase.from('app_data').select('data_key,data').eq('user_id', userId);
+  if (error) {
+    console.error('Erro ao carregar dados do Supabase:', error);
+    return {};
+  }
+  return (data || []).reduce((acc, row) => {
+    acc[row.data_key] = row.data;
+    return acc;
+  }, {});
+}
+
+async function saveUserData(userId, dataKey, data) {
+  if (!supabase || !userId) return;
+  const { error } = await supabase.from('app_data').upsert({
+    user_id: userId,
+    data_key: dataKey,
+    data: normalizeForJson(data),
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id,data_key' });
+  if (error) console.error(`Erro ao salvar ${dataKey} no Supabase:`, error);
 }
 
 export const SoilProvider = ({ children }) => {
-  const [parameters, setParameters] = useLocalState('@SoloCerto:parameters_v5', defaultParameters);
-  const [history, setHistory] = useLocalState('@SoloCerto:history', []);
-  const [clones, setClones] = useLocalState('@SoloCerto:clones', defaultClones);
-  const [properties, setProperties] = useLocalState('@SoloCerto:properties', []);
-  const [recommendations, setRecommendations] = useLocalState('@SoloCerto:recommendations', defaultRecommendations);
-  const [cropPlans, setCropPlans] = useLocalState('@SoloCerto:cropPlans', []);
+  const { user, isAuthenticated } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [parameters, setParameters] = useState(defaultParameters);
+  const [history, setHistory] = useState([]);
+  const [clones, setClones] = useState(defaultClones);
+  const [properties, setProperties] = useState([]);
+  const [recommendations, setRecommendations] = useState(defaultRecommendations);
+  const [cropPlans, setCropPlans] = useState([]);
+  const [fertilizationMonths, setFertilizationMonthsState] = useState({});
+
+  const persist = (dataKey, setter) => (updater) => {
+    setter(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (user?.id) saveUserData(user.id, dataKey, next);
+      return next;
+    });
+  };
+
+  const setParametersPersisted = persist(DATA_KEYS.parameters, setParameters);
+  const setHistoryPersisted = persist(DATA_KEYS.history, setHistory);
+  const setClonesPersisted = persist(DATA_KEYS.clones, setClones);
+  const setPropertiesPersisted = persist(DATA_KEYS.properties, setProperties);
+  const setRecommendationsPersisted = persist(DATA_KEYS.recommendations, setRecommendations);
+  const setCropPlansPersisted = persist(DATA_KEYS.cropPlans, setCropPlans);
+  const setFertilizationMonthsPersisted = persist(DATA_KEYS.fertilizationMonths, setFertilizationMonthsState);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!isAuthenticated || !user?.id) {
+        setParameters(defaultParameters);
+        setHistory([]);
+        setClones(defaultClones);
+        setProperties([]);
+        setRecommendations(defaultRecommendations);
+        setCropPlans([]);
+        setFertilizationMonthsState({});
+        return;
+      }
+      setLoading(true);
+      const stored = await loadUserData(user.id);
+      if (cancelled) return;
+      setParameters(stored[DATA_KEYS.parameters] || cloneValue(defaultParameters));
+      setHistory(stored[DATA_KEYS.history] || []);
+      setClones(stored[DATA_KEYS.clones] || cloneValue(defaultClones));
+      setProperties(stored[DATA_KEYS.properties] || []);
+      setRecommendations(stored[DATA_KEYS.recommendations] || cloneValue(defaultRecommendations));
+      setCropPlans(stored[DATA_KEYS.cropPlans] || []);
+      setFertilizationMonthsState(stored[DATA_KEYS.fertilizationMonths] || {});
+      setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, user?.id]);
 
   const updateParameterRanges = (key, newRanges) => {
-    setParameters(prev => ({
+    setParametersPersisted(prev => ({
       ...prev,
       [key]: { ...prev[key], ranges: newRanges }
     }));
@@ -119,29 +200,29 @@ export const SoilProvider = ({ children }) => {
   // History
   const saveAnalysis = (metadata, results) => {
     const newEntry = { id: Date.now().toString(), ...metadata, results };
-    setHistory(prev => [newEntry, ...prev]);
+    setHistoryPersisted(prev => [newEntry, ...prev]);
   };
-  const deleteAnalysis = (id) => setHistory(prev => prev.filter(a => a.id !== id));
-  const updateAnalysis = (id, data) => setHistory(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+  const deleteAnalysis = (id) => setHistoryPersisted(prev => prev.filter(a => a.id !== id));
+  const updateAnalysis = (id, data) => setHistoryPersisted(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
 
   // Clones
-  const addClone = (clone) => setClones(prev => [...prev, clone]);
-  const updateClone = (id, data) => setClones(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-  const removeClone = (id) => setClones(prev => prev.filter(c => c.id !== id));
+  const addClone = (clone) => setClonesPersisted(prev => [...prev, clone]);
+  const updateClone = (id, data) => setClonesPersisted(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+  const removeClone = (id) => setClonesPersisted(prev => prev.filter(c => c.id !== id));
 
   // Properties
-  const addProperty = (prop) => setProperties(prev => [...prev, prop]);
-  const updateProperty = (id, data) => setProperties(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
-  const removeProperty = (id) => setProperties(prev => prev.filter(p => p.id !== id));
+  const addProperty = (prop) => setPropertiesPersisted(prev => [...prev, prop]);
+  const updateProperty = (id, data) => setPropertiesPersisted(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+  const removeProperty = (id) => setPropertiesPersisted(prev => prev.filter(p => p.id !== id));
 
   // Recommendations
-  const addRecommendation = (rec) => setRecommendations(prev => [...prev, rec]);
-  const updateRecommendation = (id, data) => setRecommendations(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
-  const removeRecommendation = (id) => setRecommendations(prev => prev.filter(r => r.id !== id));
+  const addRecommendation = (rec) => setRecommendationsPersisted(prev => [...prev, rec]);
+  const updateRecommendation = (id, data) => setRecommendationsPersisted(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
+  const removeRecommendation = (id) => setRecommendationsPersisted(prev => prev.filter(r => r.id !== id));
 
   // Crop Plans
-  const addCropPlan = (plan) => setCropPlans(prev => [...prev, plan]);
-  const removeCropPlan = (id) => setCropPlans(prev => prev.filter(p => p.id !== id));
+  const addCropPlan = (plan) => setCropPlansPersisted(prev => [...prev, plan]);
+  const removeCropPlan = (id) => setCropPlansPersisted(prev => prev.filter(p => p.id !== id));
 
   return (
     <SoilContext.Provider value={{
@@ -150,7 +231,9 @@ export const SoilProvider = ({ children }) => {
       clones, addClone, updateClone, removeClone,
       properties, addProperty, updateProperty, removeProperty,
       recommendations, addRecommendation, updateRecommendation, removeRecommendation,
-      cropPlans, addCropPlan, removeCropPlan
+      cropPlans, addCropPlan, removeCropPlan,
+      fertilizationMonths, setFertilizationMonths: setFertilizationMonthsPersisted,
+      loading
     }}>
       {children}
     </SoilContext.Provider>

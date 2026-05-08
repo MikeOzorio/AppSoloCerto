@@ -4,7 +4,7 @@ import { Save, AlertCircle, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-reac
 import './Settings.css';
 
 export default function Settings() {
-  const { parameters, updateParameterRanges } = useSoil();
+  const { parameters, updateParameterRanges, fertilizationMonths, setFertilizationMonths } = useSoil();
   const [localParams, setLocalParams] = useState(parameters);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState('quimicos');
@@ -24,13 +24,11 @@ export default function Settings() {
     { id: 12, name: 'Dez', fullName: 'Dezembro' },
   ];
 
-  const [selectedMonths, setSelectedMonths] = useState(() => {
-    const saved = localStorage.getItem('@SoloCerto:fertilizationMonths');
-    if (saved) {
-      try { return JSON.parse(saved); } catch { return {}; }
-    }
-    return {};
-  });
+  const [selectedMonths, setSelectedMonths] = useState(fertilizationMonths || {});
+
+  React.useEffect(() => {
+    setSelectedMonths(fertilizationMonths || {});
+  }, [fertilizationMonths]);
 
   const toggleMonth = (id) => {
     setSelectedMonths(prev => {
@@ -125,7 +123,7 @@ export default function Settings() {
     Object.keys(localParams).forEach(key => {
       updateParameterRanges(key, localParams[key].ranges);
     });
-    localStorage.setItem('@SoloCerto:fertilizationMonths', JSON.stringify(selectedMonths));
+    setFertilizationMonths(selectedMonths);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
