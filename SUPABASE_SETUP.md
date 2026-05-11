@@ -32,7 +32,7 @@ Esse SQL cria:
 - `soil_analyses`: análises de solo/histórico.
 - `crop_plans`: planejamento de safra.
 - `user_settings`: configurações do usuário.
-- `app_data`: compatibilidade com dados antigos do app.
+- `app_data`: removida. A versão atual usa tabelas relacionais.
 
 ## 3. Ativar confirmação de e-mail
 No Supabase:
@@ -65,3 +65,14 @@ Na Vercel, adicione as mesmas variáveis:
 - `VITE_SUPABASE_ANON_KEY`
 
 Depois faça `Redeploy`.
+
+
+## Limpeza da tabela antiga
+
+Se ainda aparecerem dados antigos, rode também:
+
+```text
+supabase/cleanup_legacy.sql
+```
+
+Esse script remove `app_data` e zera colunas JSON legadas que não são mais lidas pelo app.

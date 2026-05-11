@@ -234,15 +234,8 @@ create table if not exists public.user_settings (
   unique(user_id, setting_key)
 );
 
--- Compatibilidade com versões anteriores do app.
-create table if not exists public.app_data (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  data_key text not null,
-  data jsonb not null default '{}'::jsonb,
-  updated_at timestamptz not null default now(),
-  unique(user_id, data_key)
-);
+-- app_data era usado em versões antigas. A versão relacional não usa mais essa tabela.
+drop table if exists public.app_data cascade;
 
 -- =====================================================
 -- 7) ROW LEVEL SECURITY
@@ -257,7 +250,6 @@ alter table public.properties enable row level security;
 alter table public.soil_analyses enable row level security;
 alter table public.crop_plans enable row level security;
 alter table public.user_settings enable row level security;
-alter table public.app_data enable row level security;
 
 -- Profiles
 drop policy if exists "profiles_select_own_or_admin" on public.profiles;
@@ -318,15 +310,13 @@ drop policy if exists "crop_plans_all_own" on public.crop_plans;
 create policy "crop_plans_all_own" on public.crop_plans for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "user_settings_all_own" on public.user_settings;
 create policy "user_settings_all_own" on public.user_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-drop policy if exists "app_data_all_own" on public.app_data;
-create policy "app_data_all_own" on public.app_data for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- =====================================================
 -- 8) MODELO RELACIONAL POR TELA - PROPRIEDADES, TALHÕES,
 --    CLONES, ANÁLISES E PLANEJAMENTO DE SAFRA
 -- =====================================================
--- Este bloco mantém compatibilidade com as colunas antigas JSON,
--- mas passa a gravar os dados em tabelas próprias com foreign keys.
+-- A aplicação passa a ler/gravar nas tabelas próprias com foreign keys.
+-- As colunas JSON antigas, quando existirem, ficam apenas como legado e não são lidas pelo app.
 
 create table if not exists public.property_plots (
   id uuid primary key default gen_random_uuid(),

@@ -174,7 +174,7 @@ const mapAnalysisRelationalRow = (row) => ({
   propertyId: row.property_id,
   talhaoId: row.plot_id || row.talhao_id,
   plotId: row.plot_id,
-  results: row.results || Object.fromEntries((row.soil_analysis_results || []).map((item) => [item.parameter_key, String(item.value ?? '')]))
+  results: Object.fromEntries((row.soil_analysis_results || []).map((item) => [item.parameter_key, String(item.value ?? '')]))
 });
 
 const mapCropPlanRelationalRow = (row) => {
@@ -201,8 +201,8 @@ const mapCropPlanRelationalRow = (row) => {
     talhaoId: row.plot_id || row.talhao_id || '',
     plotId: row.plot_id || '',
     recommendationId: row.productivity_table_id || row.recommendation_id || '',
-    nutrients: nutrientsFromRows.length ? nutrientsFromRows : (row.nutrients || []),
-    selectedMonths: Object.keys(monthsFromRows).length ? monthsFromRows : (row.selected_months || {}),
+    nutrients: nutrientsFromRows,
+    selectedMonths: monthsFromRows,
     totalCost: row.total_cost,
     createdAt: row.created_at
   };
@@ -325,7 +325,7 @@ export const SoilProvider = ({ children }) => {
         file_name: metadata.fileName || null,
         analysis_date: metadata.analysisDate || null,
         metadata: normalizeForJson({ ...metadata, propertyId: propertyId || metadata.propertyId || null, talhaoId: plotId || metadata.talhaoId || null }),
-        results: normalizeForJson(results)
+        results: {}
       };
       const { data, error } = await supabase.from('soil_analyses').insert(payload).select('*').single();
       if (error) return showDbError('salvar análise de solo', error);
@@ -433,7 +433,7 @@ export const SoilProvider = ({ children }) => {
         user_id: user.id,
         name: prop.name,
         area: toNumberOrNull(prop.area),
-        talhoes: normalizeForJson(prop.talhoes || [])
+        talhoes: []
       }).select('*').single();
       if (error) throw error;
       await saveTalhoesForProperty(data.id, prop.talhoes || []);
@@ -448,7 +448,7 @@ export const SoilProvider = ({ children }) => {
       const { error } = await supabase.from('properties').update({
         name: data.name,
         area: toNumberOrNull(data.area),
-        talhoes: normalizeForJson(data.talhoes || []),
+        talhoes: [],
         updated_at: new Date().toISOString()
       }).eq('id', id).eq('user_id', user.id);
       if (error) throw error;
@@ -507,8 +507,8 @@ export const SoilProvider = ({ children }) => {
         talhao_id: plan.talhaoId || null,
         productivity_table_id: selectedRecommendationIdToUuid(plan.recommendationId, recommendations),
         recommendation_id: plan.recommendationId || null,
-        nutrients: normalizeForJson(plan.nutrients || []),
-        selected_months: normalizeForJson(plan.selectedMonths || {}),
+        nutrients: [],
+        selected_months: {},
         total_cost: toNumberOrNull(totalCost)
       }).select('*').single();
       if (error) throw error;
