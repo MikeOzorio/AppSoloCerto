@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CreditCard, Check, Star, Zap, Crown, Clock, AlertCircle } from 'lucide-react';
@@ -50,33 +50,75 @@ const PLANS = [
   }
 ];
 
+function getDaysLeft(dateValue) {
+  if (!dateValue) return 0;
+  const end = new Date(dateValue).getTime();
+  if (Number.isNaN(end)) return 0;
+  const diff = end - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
 export default function Subscription({ onboarding = false }) {
-  const { user, startTrial, choosePlan, logout } = useAuth();
+  const { user, startTrial, choosePlan, logout, refreshCurrentUser } = useAuth();
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const trialDaysLeft = (() => {
-    if (!user?.trialDays || !user?.createdAt) return 0;
-    const created = new Date(user.createdAt);
-    const now = new Date();
-    const diffDays = Math.ceil((now - created) / (1000 * 60 * 60 * 24));
-    return Math.max(0, user.trialDays - diffDays);
-  })();
+  const subscription = user?.subscription || null;
+  const trialDaysLeft = useMemo(() => getDaysLeft(subscription?.trial_ends_at || subscription?.ends_at), [subscription]);
+  const isTrial = subscription?.status === 'trialing' && trialDaysLeft > 0;
+  const currentPlan = PLANS.find((plan) => plan.id === subscription?.plan_code);
 
-  const handleSelectPlan = (planId) => {
-    setSelectedPlan(planId);
-    alert(`Plano "${PLANS.find(p => p.id === planId)?.name}" selecionado!\n\nEm breve a integração com pagamento estará disponível. Por enquanto, entre em contato com o suporte para ativar seu plano.`);
+  const handleStartTrial = async () => {
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    const result = await startTrial();
+    setSaving(false);
+
+    if (!result?.success) {
+      setError(result?.error || 'Não foi possível iniciar o teste grátis.');
+      return;
+    }
+
+    setMessage('Teste grátis ativado por 15 dias. Redirecionando...');
+    await refreshCurrentUser?.();
+    setTimeout(() => navigate('/', { replace: true }), 500);
+  };
+
+  const handleSelectPlan = async (plan) => {
+    setSaving(true);
+    setError('');
+    setMessage('');
+    setSelectedPlan(plan.id);
+
+    const result = await choosePlan(plan);
+    setSaving(false);
+
+    if (!result?.success) {
+      setError(result?.error || 'Não foi possível selecionar o plano.');
+      return;
+    }
+
+    setMessage(`Plano ${plan.name} selecionado. Em breve conectaremos o pagamento automático; por enquanto, o status fica como pagamento pendente.`);
+    await refreshCurrentUser?.();
   };
 
   return (
     <div className="subscription-page container animate-fade-in">
       <div className="sub-header">
         <h2>{onboarding ? 'Escolha como começar' : 'Gerenciamento de Assinatura'}</h2>
-        <p className="text-muted">{onboarding ? 'Ative seu teste grátis de 15 dias ou escolha uma assinatura.' : 'Escolha o plano ideal para a sua operação agrícola.'}</p>
-        {onboarding && <button className="btn btn-secondary" onClick={logout} style={{ marginTop: '1rem' }}>Sair e trocar usuário</button>}
+        <p className="text-muted">
+          {onboarding ? 'Ative seu teste grátis de 15 dias ou escolha uma assinatura.' : 'Escolha o plano ideal para a sua operação agrícola.'}
+        </p>
+        {onboarding && (
+          <button className="btn btn-secondary" onClick={logout} style={{ marginTop: '1rem' }} disabled={saving}>
+            Sair e trocar usuário
+          </button>
+        )}
       </div>
 
       {(message || error) && (
@@ -95,12 +137,11 @@ export default function Subscription({ onboarding = false }) {
             </div>
           </div>
           <button className="btn btn-primary" onClick={handleStartTrial} disabled={saving}>
-            Começar teste grátis
+            {saving ? 'Salvando...' : 'Começar teste grátis'}
           </button>
         </div>
       )}
 
-      {/* Status Card */}
       <div className="sub-status-card card">
         <div className="sub-status-left">
           <div className="sub-status-icon">
@@ -109,14 +150,15 @@ export default function Subscription({ onboarding = false }) {
           <div>
             <h3>Plano Atual</h3>
             <p className="text-muted">
-              {trialDaysLeft > 0 
-                ? `Período de Teste — ${trialDaysLeft} dia(s) restante(s)`
-                : 'Nenhum plano ativo. Selecione um plano abaixo.'
-              }
+              {isTrial
+                ? `Teste grátis — ${trialDaysLeft} dia(s) restante(s)`
+                : currentPlan
+                  ? `${currentPlan.name} — ${subscription?.status === 'active' ? 'Ativo' : 'Pagamento pendente'}`
+                  : 'Nenhum plano ativo. Selecione um plano abaixo.'}
             </p>
           </div>
         </div>
-        {trialDaysLeft > 0 && (
+        {isTrial && (
           <div className="sub-trial-badge">
             <Clock size={16} />
             <span>Trial: {trialDaysLeft}d</span>
@@ -124,13 +166,12 @@ export default function Subscription({ onboarding = false }) {
         )}
       </div>
 
-      {trialDaysLeft > 0 && trialDaysLeft <= 3 && (
+      {isTrial && trialDaysLeft <= 3 && (
         <div className="alert warning" style={{ marginBottom: '2rem' }}>
           <AlertCircle size={18} /> Seu período de teste está acabando! Assine um plano para não perder acesso.
         </div>
       )}
 
-      {/* Plans Grid */}
       <div className="plans-grid">
         {PLANS.map(plan => (
           <div key={plan.id} className={`plan-card card ${plan.highlight ? 'plan-highlighted' : ''}`}>
@@ -150,10 +191,10 @@ export default function Subscription({ onboarding = false }) {
                 <li key={i}><Check size={16} style={{ color: plan.color }} /> {f}</li>
               ))}
             </ul>
-            <button 
+            <button
               className={`btn ${plan.highlight ? 'btn-primary' : 'btn-secondary'}`}
               style={plan.highlight ? { backgroundColor: plan.color } : {}}
-              onClick={() => handleSelectPlan(plan.id)}
+              onClick={() => handleSelectPlan(plan)}
               disabled={saving}
             >
               {selectedPlan === plan.id ? 'Selecionado' : 'Assinar Agora'}
