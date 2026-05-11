@@ -97,7 +97,7 @@ export default function Reports() {
                     <span>Custo Estimado</span>
                     <strong>R$ {grandTotalCost.toFixed(2)}</strong>
                   </div>
-                  <button className="btn-icon" onClick={(e) => { e.stopPropagation(); removeCropPlan(plan.id); }}>
+                  <button className="btn-icon" onClick={(e) => { e.stopPropagation(); if (window.confirm('Deseja realmente excluir este planejamento de safra?')) removeCropPlan(plan.id); }}>
                     <Trash2 size={18} className="text-danger" />
                   </button>
                   {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}

@@ -58,6 +58,7 @@ export default function Recommendations() {
     });
 
     if (editingId) {
+      if (!window.confirm('Deseja realmente editar esta faixa de produtividade?')) return;
       updateRecommendation(editingId, { name: formName, nutrients: nutObj });
     } else {
       addRecommendation({ id: Date.now().toString(), name: formName, nutrients: nutObj });
@@ -141,7 +142,7 @@ export default function Recommendations() {
                 <h3 className="rec-title"><Target size={20} className="text-primary" /> {rec.name}</h3>
                 <div className="rec-actions">
                   <button className="btn-icon" onClick={() => startEdit(rec)}><Edit2 size={18} /></button>
-                  <button className="btn-icon text-danger" onClick={() => removeRecommendation(rec.id)}><Trash2 size={18} /></button>
+                  <button className="btn-icon text-danger" onClick={() => { if (window.confirm('Deseja realmente excluir esta faixa de produtividade?')) removeRecommendation(rec.id); }}><Trash2 size={18} /></button>
                 </div>
               </div>
               <div className="rec-nutrients">

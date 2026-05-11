@@ -9,6 +9,7 @@ import Properties from './pages/Properties';
 import Clones from './pages/Clones';
 import Fertilization from './pages/Fertilization';
 import Recommendations from './pages/Recommendations';
+import MonthlyDivision from './pages/MonthlyDivision';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Subscription from './pages/Subscription';
@@ -69,6 +70,7 @@ function AppRoutes() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/users" element={<Users />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/monthly-division" element={<MonthlyDivision />} />
           <Route path="/subscription" element={<Subscription />} />
           <Route path="/support" element={<Support />} />
           <Route path="/login" element={<Navigate to="/" replace />} />

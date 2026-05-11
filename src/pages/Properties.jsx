@@ -85,6 +85,7 @@ export default function Properties() {
   const handleSave = () => {
     if (!form.name.trim()) return;
     if (editingId) {
+      if (!window.confirm('Deseja realmente editar esta propriedade?')) return;
       updateProperty(editingId, form);
     } else {
       addProperty({
@@ -154,7 +155,7 @@ export default function Properties() {
               <div key={talhao.id} className="talhao-card">
                 <div className="talhao-top">
                   <h5>Talhão #{tIdx + 1}</h5>
-                  <button className="btn-icon text-danger" onClick={() => handleRemoveTalhao(talhao.id)}><Trash2 size={16} /></button>
+                  <button className="btn-icon text-danger" onClick={() => { if (window.confirm('Deseja realmente excluir este talhão?')) handleRemoveTalhao(talhao.id); }}><Trash2 size={16} /></button>
                 </div>
                 <div className="form-row-3">
                   <div className="input-group">
@@ -185,7 +186,7 @@ export default function Properties() {
                         ))}
                       </select>
                       <input type="number" className="input clone-qty" value={tc.quantidade} onChange={e => handleCloneChange(talhao.id, cIdx, 'quantidade', e.target.value)} placeholder="Qtd" />
-                      <button className="btn-icon text-danger" onClick={() => handleRemoveCloneFromTalhao(talhao.id, cIdx)}><Trash2 size={14} /></button>
+                      <button className="btn-icon text-danger" onClick={() => { if (window.confirm('Deseja realmente excluir este clone do talhão?')) handleRemoveCloneFromTalhao(talhao.id, cIdx); }}><Trash2 size={14} /></button>
                     </div>
                   ))}
                   {talhao.clones.length === 0 && <p className="text-muted" style={{fontSize:'0.8rem'}}>Nenhum clone adicionado.</p>}
@@ -221,7 +222,7 @@ export default function Properties() {
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <span className="talhao-count">{(prop.talhoes || []).length} talhão(ões)</span>
               <button className="btn-icon" onClick={e => { e.stopPropagation(); handleEdit(prop); }}><Edit2 size={16} /></button>
-              <button className="btn-icon text-danger" onClick={e => { e.stopPropagation(); removeProperty(prop.id); }}><Trash2 size={16} /></button>
+              <button className="btn-icon text-danger" onClick={e => { e.stopPropagation(); if (window.confirm('Deseja realmente excluir esta propriedade?')) removeProperty(prop.id); }}><Trash2 size={16} /></button>
               {expanded === prop.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </div>
           </div>
