@@ -118,12 +118,7 @@ async function saveUserData(userId, dataKey, data) {
     data: normalizeForJson(data),
     updated_at: new Date().toISOString()
   }, { onConflict: 'user_id,data_key' });
-  if (error) {
-    console.error(`Erro ao salvar ${dataKey} no Supabase:`, error);
-    if (typeof window !== 'undefined') {
-      window.alert(`Não foi possível salvar no banco de dados (${dataKey}). Verifique as policies/RLS do Supabase. Detalhe: ${error.message}`);
-    }
-  }
+  if (error) console.error(`Erro ao salvar ${dataKey} no Supabase:`, error);
 }
 
 export const SoilProvider = ({ children }) => {

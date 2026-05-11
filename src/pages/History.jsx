@@ -93,7 +93,6 @@ export default function History() {
 
   const saveEditing = (id, e) => {
     e.stopPropagation();
-    if (!window.confirm('Deseja realmente editar os vínculos desta análise?')) return;
     updateAnalysis(id, { linkedProperties: selectedProps });
     setEditingId(null);
   };

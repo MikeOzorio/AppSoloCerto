@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { clearSupabaseAuthStorage, isSupabaseConfigured, supabase } from '../lib/supabaseClient';
+import { clearOldSupabaseAuthStorage, isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext();
 
@@ -8,6 +8,11 @@ const addDays = (date, days) => {
   result.setDate(result.getDate() + Number(days || 0));
   return result.toISOString();
 };
+
+const withTimeout = (promise, ms = 12000) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('Tempo esgotado ao comunicar com o Supabase.')), ms)),
+]);
 
 const isSubscriptionActive = (subscription) => {
   if (!subscription) return false;
@@ -41,13 +46,14 @@ export const AuthProvider = ({ children }) => {
 
   const loadSubscription = async (userId) => {
     if (!supabase || !userId) return null;
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await withTimeout(
+      supabase.from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    );
     if (error) {
       console.error('Erro ao carregar assinatura:', error);
       return null;
@@ -55,12 +61,14 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const loadUsers = async () => {
+  const loadUsers = async (force = false) => {
     if (!supabase) return [];
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id,name,first_name,last_name,email,phone,birth_date,cpf,role,created_at')
-      .order('created_at', { ascending: true });
+    if (!force && user?.role !== 'admin') return [];
+    const { data, error } = await withTimeout(
+      supabase.from('profiles')
+        .select('id,name,first_name,last_name,email,phone,birth_date,cpf,role,created_at')
+        .order('created_at', { ascending: true })
+    );
     if (error) {
       console.error('Erro ao carregar usuários:', error);
       return [];
@@ -75,62 +83,116 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       return null;
     }
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('id,name,first_name,last_name,email,phone,birth_date,cpf,role,created_at,phone_verified_at')
-      .eq('id', authUser.id)
-      .maybeSingle();
-    if (error) console.error('Erro ao carregar perfil:', error);
+
+    let profile = null;
+    const { data: profileData, error: profileError } = await withTimeout(
+      supabase.from('profiles')
+        .select('id,name,first_name,last_name,email,phone,birth_date,cpf,role,created_at,phone_verified_at')
+        .eq('id', authUser.id)
+        .maybeSingle()
+    );
+
+    if (profileError) {
+      console.error('Erro ao carregar perfil:', profileError);
+    } else {
+      profile = profileData;
+    }
+
+    // Garante que usuário antigo sem profile não fica preso no F5.
+    if (!profile) {
+      const fullName = authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuário';
+      const { data: insertedProfile, error: insertError } = await supabase.from('profiles').upsert({
+        id: authUser.id,
+        name: fullName,
+        first_name: authUser.user_metadata?.first_name || '',
+        last_name: authUser.user_metadata?.last_name || '',
+        phone: authUser.user_metadata?.phone || '',
+        email: authUser.email,
+        birth_date: authUser.user_metadata?.birth_date || null,
+        cpf: authUser.user_metadata?.cpf || '',
+        role: authUser.user_metadata?.role || 'user',
+      }).select('id,name,first_name,last_name,email,phone,birth_date,cpf,role,created_at,phone_verified_at').maybeSingle();
+
+      if (!insertError) profile = insertedProfile;
+      if (insertError) console.error('Erro ao criar perfil automático:', insertError);
+    }
+
     const subscription = await loadSubscription(authUser.id);
     const mapped = profileToUser(profile, authUser, subscription);
     setUser(mapped);
+
+    if (mapped.role === 'admin') {
+      await loadUsers(true);
+    } else {
+      setUsers([]);
+    }
+
     return mapped;
+  };
+
+  const restoreSession = async () => {
+    setLoading(true);
+    setAuthError('');
+
+    if (!isSupabaseConfigured || !supabase) {
+      setAuthError('Supabase não configurado. Preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+      setUser(null);
+      setUsers([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      clearOldSupabaseAuthStorage();
+      const { data, error } = await withTimeout(supabase.auth.getSession());
+      if (error) throw error;
+
+      if (data.session?.user) {
+        await loadCurrentUser(data.session.user);
+      } else {
+        setUser(null);
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error('Erro ao restaurar sessão:', error);
+      setAuthError('Não foi possível restaurar sua sessão. Verifique a conexão e tente atualizar a página.');
+      setUser(null);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     let mounted = true;
-    const boot = async () => {
-      setLoading(true);
-      setAuthError('');
-      if (!isSupabaseConfigured || !supabase) {
-        setAuthError('Supabase não configurado. Preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env.');
-        setLoading(false);
-        return;
-      }
-      const { data, error } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (error) {
-        console.warn('Sessão Supabase inválida. Limpando sessão local:', error);
-        clearSupabaseAuthStorage();
-        await supabase.auth.signOut({ scope: 'local' });
-        setUser(null);
-        setUsers([]);
-        setAuthError('Sessão expirada. Faça login novamente.');
-        setLoading(false);
-        return;
-      }
-      if (data.session?.user) {
-        await loadCurrentUser(data.session.user);
-        await loadUsers();
-      } else {
-        setUser(null);
-        setUsers([]);
-      }
-      setLoading(false);
-    };
-    boot();
-    if (!supabase) return () => { mounted = false; };
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
-      if (session?.user) {
-        await loadCurrentUser(session.user);
-        await loadUsers();
-      } else {
-        setUser(null);
-        setUsers([]);
-      }
-      setLoading(false);
+
+    restoreSession();
+
+    if (!supabase) {
+      return () => { mounted = false; };
+    }
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Evita deadlock/travamento no refresh: não aguarda queries Supabase dentro do callback.
+      setTimeout(async () => {
+        if (!mounted) return;
+        try {
+          setAuthError('');
+          if (session?.user) {
+            await loadCurrentUser(session.user);
+          } else {
+            setUser(null);
+            setUsers([]);
+          }
+        } catch (error) {
+          console.error('Erro ao atualizar sessão:', error);
+          setAuthError('Erro ao atualizar sessão.');
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      }, 0);
     });
+
     return () => {
       mounted = false;
       listener?.subscription?.unsubscribe();
@@ -139,12 +201,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     if (!supabase) return { success: false, error: 'Supabase não configurado.' };
+    setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { success: false, error: error.message || 'E-mail ou senha incorretos.' };
-    if (data.user) {
-      await loadCurrentUser(data.user);
-      await loadUsers();
+    if (error) {
+      setLoading(false);
+      return { success: false, error: error.message || 'E-mail ou senha incorretos.' };
     }
+    if (data.user) await loadCurrentUser(data.user);
+    setLoading(false);
     return { success: true };
   };
 
@@ -157,15 +221,8 @@ export const AuthProvider = ({ children }) => {
       password,
       options: {
         emailRedirectTo: window.location.origin,
-        data: {
-          name: fullName,
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          birth_date: birthDate,
-          cpf: cleanCpf,
-        }
-      }
+        data: { name: fullName, first_name: firstName, last_name: lastName, phone, birth_date: birthDate, cpf: cleanCpf },
+      },
     });
     if (error) return { success: false, error: error.message };
 
@@ -182,14 +239,13 @@ export const AuthProvider = ({ children }) => {
         role: 'user',
       });
       if (profileError) return { success: false, error: profileError.message };
+      await loadCurrentUser(data.user);
     }
 
     return {
       success: true,
       needsEmailConfirmation: !data.session,
-      message: data.session
-        ? 'Cadastro criado. Escolha seu teste grátis ou assinatura.'
-        : 'Cadastro criado. Confira seu e-mail para validar a conta antes de entrar.'
+      message: data.session ? 'Cadastro criado. Escolha seu teste grátis ou assinatura.' : 'Cadastro criado. Confira seu e-mail para validar a conta antes de entrar.',
     };
   };
 
@@ -234,29 +290,21 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     if (supabase) await supabase.auth.signOut({ scope: 'local' });
-    clearSupabaseAuthStorage();
     setUser(null);
     setUsers([]);
   };
 
   const createUser = async (name, email, password, role = 'user', trialDays = 0) => {
-    if (!user || user.role !== 'admin') {
-      return { success: false, error: 'Apenas administradores podem criar contas.' };
-    }
+    if (!user || user.role !== 'admin') return { success: false, error: 'Apenas administradores podem criar contas.' };
     if (!supabase) return { success: false, error: 'Supabase não configurado.' };
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, role, trial_days: Number(trialDays) } }
+      options: { data: { name, role, trial_days: Number(trialDays) } },
     });
     if (error) return { success: false, error: error.message };
     if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        name,
-        email,
-        role,
-      });
+      await supabase.from('profiles').upsert({ id: data.user.id, name, email, role });
       if (Number(trialDays) > 0) {
         await supabase.from('subscriptions').upsert({
           user_id: data.user.id,
@@ -271,7 +319,7 @@ export const AuthProvider = ({ children }) => {
         }, { onConflict: 'user_id' });
       }
     }
-    await loadUsers();
+    await loadUsers(true);
     return { success: true };
   };
 
@@ -289,12 +337,13 @@ export const AuthProvider = ({ children }) => {
     createUser,
     startTrial,
     choosePlan,
-    refreshUsers: loadUsers,
+    refreshUsers: () => loadUsers(true),
     refreshCurrentUser: async () => {
       const { data } = await supabase.auth.getUser();
       if (data?.user) return loadCurrentUser(data.user);
       return null;
-    }
+    },
+    restoreSession,
   }), [user, users, loading, authError]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

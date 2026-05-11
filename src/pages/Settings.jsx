@@ -4,17 +4,56 @@ import { Save, AlertCircle, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-reac
 import './Settings.css';
 
 export default function Settings() {
-  const { parameters, updateParameterRanges } = useSoil();
+  const { parameters, updateParameterRanges, fertilizationMonths, setFertilizationMonths } = useSoil();
   const [localParams, setLocalParams] = useState(parameters);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState('quimicos');
 
+  const MONTHS = [
+    { id: 1, name: 'Jan', fullName: 'Janeiro' },
+    { id: 2, name: 'Fev', fullName: 'Fevereiro' },
+    { id: 3, name: 'Mar', fullName: 'Março' },
+    { id: 4, name: 'Abr', fullName: 'Abril' },
+    { id: 5, name: 'Mai', fullName: 'Maio' },
+    { id: 6, name: 'Jun', fullName: 'Junho' },
+    { id: 7, name: 'Jul', fullName: 'Julho' },
+    { id: 8, name: 'Ago', fullName: 'Agosto' },
+    { id: 9, name: 'Set', fullName: 'Setembro' },
+    { id: 10, name: 'Out', fullName: 'Outubro' },
+    { id: 11, name: 'Nov', fullName: 'Novembro' },
+    { id: 12, name: 'Dez', fullName: 'Dezembro' },
+  ];
+
+  const [selectedMonths, setSelectedMonths] = useState(fertilizationMonths || {});
+
+  React.useEffect(() => {
+    setSelectedMonths(fertilizationMonths || {});
+  }, [fertilizationMonths]);
+
+  const toggleMonth = (id) => {
+    setSelectedMonths(prev => {
+      const next = { ...prev };
+      if (next[id] !== undefined) delete next[id];
+      else next[id] = 0;
+      setSaved(false);
+      return next;
+    });
+  };
+
+  const updateMonthPercentage = (id, value) => {
+    setSelectedMonths(prev => ({ ...prev, [id]: Number(value) }));
+    setSaved(false);
+  };
+
+  const totalPercentage = Object.values(selectedMonths).reduce((acc, val) => acc + (val || 0), 0);
+  const isValidPercentage = totalPercentage === 100;
 
   const tabs = [
     { id: 'quimicos', label: 'Químicos Básicos' },
     { id: 'macro', label: 'Macronutrientes' },
     { id: 'micro', label: 'Micronutrientes' },
-    { id: 'indices', label: 'Índices e Acidez' }
+    { id: 'indices', label: 'Índices e Acidez' },
+    { id: 'meses', label: 'Divisão Mensal Global' }
   ];
 
   const handleRangeChange = (paramKey, rangeIndex, field, value) => {
@@ -50,7 +89,6 @@ export default function Settings() {
   };
 
   const removeRange = (paramKey, rangeIndex) => {
-    if (!window.confirm('Deseja realmente excluir esta faixa?')) return;
     const newParams = { ...localParams };
     const ranges = [...newParams[paramKey].ranges];
     ranges.splice(rangeIndex, 1);
@@ -82,10 +120,10 @@ export default function Settings() {
   };
 
   const handleSave = () => {
-    if (!window.confirm('Deseja realmente salvar as alterações dos Parâmetros da Análise?')) return;
     Object.keys(localParams).forEach(key => {
       updateParameterRanges(key, localParams[key].ranges);
     });
+    setFertilizationMonths(selectedMonths);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -196,6 +234,63 @@ export default function Settings() {
           </div>
         ))}
       </div>
+
+      {activeTab === 'meses' && (
+        <div className="card" style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div>
+              <h3 style={{ margin: 0, color: 'var(--color-primary-dark)' }}>Meses de Adubação</h3>
+              <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                Defina aqui os meses de aplicação da fazenda. A porcentagem total deve fechar em 100%. Esta configuração será aplicada automaticamente na tela de Adubação.
+              </p>
+            </div>
+            <span className={`percentage-badge ${isValidPercentage ? 'valid' : 'invalid'}`}>
+              Total: {totalPercentage}% {isValidPercentage && <span style={{marginLeft: '4px'}}>✔</span>}
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+            {MONTHS.map(month => {
+              const isSelected = selectedMonths[month.id] !== undefined;
+              return (
+                <div key={month.id} style={{
+                  border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  backgroundColor: isSelected ? 'rgba(139, 90, 43, 0.03)' : 'transparent'
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 500 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={isSelected}
+                      onChange={() => toggleMonth(month.id)}
+                    />
+                    <span>{month.name}</span>
+                  </label>
+                  
+                  {isSelected && (
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input 
+                        type="number" 
+                        className="input"
+                        style={{ width: '100%', paddingRight: '2rem', textAlign: 'right' }}
+                        placeholder="%"
+                        value={selectedMonths[month.id] || ''}
+                        onChange={(e) => updateMonthPercentage(month.id, e.target.value)}
+                      />
+                      <span style={{ position: 'absolute', right: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>%</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

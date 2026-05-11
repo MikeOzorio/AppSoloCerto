@@ -30,7 +30,6 @@ export default function Clones() {
 
   const saveEdit = () => {
     if (!editForm.name.trim()) return;
-    if (!window.confirm('Deseja realmente editar este clone?')) return;
     updateClone(editingId, editForm);
     setEditingId(null);
   };
@@ -112,7 +111,7 @@ export default function Clones() {
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button className="btn-icon" onClick={() => startEdit(clone)} title="Editar Clone"><Edit2 size={16} /></button>
-                  <button className="btn-icon text-danger" onClick={() => { if (window.confirm('Deseja realmente excluir este clone?')) removeClone(clone.id); }} title="Excluir Clone"><Trash2 size={16} /></button>
+                  <button className="btn-icon text-danger" onClick={() => removeClone(clone.id)} title="Excluir Clone"><Trash2 size={16} /></button>
                 </div>
               </>
             )}

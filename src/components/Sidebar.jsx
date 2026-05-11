@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Coffee, Settings, FileText, History as HistoryIcon, MapPin, Leaf, LogOut, 
   Calculator, Users as UsersIcon, ChevronDown, Target, Moon, Sun, 
-  CreditCard, HeadphonesIcon, Home, Menu, X, BarChart3, CalendarDays
+  CreditCard, HeadphonesIcon, Home, Menu, X, BarChart3
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -115,7 +115,7 @@ export default function Sidebar() {
           {/* Configurações */}
           <div className="sidebar-section">
             <button 
-              className={`sidebar-item section-toggle ${isSectionActive(['/settings', '/recommendations', '/monthly-division']) ? 'active' : ''}`}
+              className={`sidebar-item section-toggle ${isSectionActive(['/settings', '/recommendations']) ? 'active' : ''}`}
               onClick={() => toggleSection('config')}
             >
               <Settings size={20} />
@@ -133,9 +133,6 @@ export default function Sidebar() {
                 </Link>
                 <Link to="/recommendations" className={`sidebar-subitem ${isActive('/recommendations') ? 'active' : ''}`} onClick={handleNavClick}>
                   <Target size={16} /> Tabelas Produtividade
-                </Link>
-                <Link to="/monthly-division" className={`sidebar-subitem ${isActive('/monthly-division') ? 'active' : ''}`} onClick={handleNavClick}>
-                  <CalendarDays size={16} /> Divisão Mensal Global
                 </Link>
               </div>
             )}
