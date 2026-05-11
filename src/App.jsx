@@ -19,14 +19,14 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, hasActiveSubscription } = useAuth();
   if (loading) return <div className="container">Carregando...</div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }
 
 function AppRoutes() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, hasActiveSubscription } = useAuth();
 
   if (loading) {
     return <div className="container">Carregando...</div>;
@@ -38,6 +38,19 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+    );
+  }
+
+  if (!hasActiveSubscription) {
+    return (
+      <div className="app-layout">
+        <main className="main-content" style={{ marginLeft: 0 }}>
+          <Routes>
+            <Route path="/subscription" element={<Subscription onboarding />} />
+            <Route path="*" element={<Navigate to="/subscription" replace />} />
+          </Routes>
+        </main>
+      </div>
     );
   }
 

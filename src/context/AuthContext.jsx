@@ -1,15 +1,36 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
+import { clearSupabaseAuthStorage, isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext();
 
-const profileToUser = (profile, authUser) => ({
+const addDays = (date, days) => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + Number(days || 0));
+  return result.toISOString();
+};
+
+const isSubscriptionActive = (subscription) => {
+  if (!subscription) return false;
+  if (!['trialing', 'active'].includes(subscription.status)) return false;
+  if (!subscription.ends_at) return true;
+  return new Date(subscription.ends_at).getTime() >= Date.now();
+};
+
+const profileToUser = (profile, authUser, subscription) => ({
   id: profile?.id || authUser?.id,
-  name: profile?.name || authUser?.user_metadata?.name || authUser?.email?.split('@')[0] || 'Usuário',
+  firstName: profile?.first_name || authUser?.user_metadata?.first_name || '',
+  lastName: profile?.last_name || authUser?.user_metadata?.last_name || '',
+  name: profile?.name || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || authUser?.user_metadata?.name || authUser?.email?.split('@')[0] || 'Usuário',
   email: profile?.email || authUser?.email,
+  phone: profile?.phone || authUser?.user_metadata?.phone || '',
+  birthDate: profile?.birth_date || authUser?.user_metadata?.birth_date || '',
+  cpf: profile?.cpf || authUser?.user_metadata?.cpf || '',
   role: profile?.role || authUser?.user_metadata?.role || 'user',
-  trialDays: profile?.trial_days ?? Number(authUser?.user_metadata?.trial_days || 0),
-  createdAt: profile?.created_at || authUser?.created_at
+  emailVerified: Boolean(authUser?.email_confirmed_at),
+  phoneVerified: Boolean(profile?.phone_verified_at),
+  createdAt: profile?.created_at || authUser?.created_at,
+  subscription,
+  hasActiveSubscription: isSubscriptionActive(subscription),
 });
 
 export const AuthProvider = ({ children }) => {
@@ -18,17 +39,33 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState('');
 
+  const loadSubscription = async (userId) => {
+    if (!supabase || !userId) return null;
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error('Erro ao carregar assinatura:', error);
+      return null;
+    }
+    return data;
+  };
+
   const loadUsers = async () => {
     if (!supabase) return [];
     const { data, error } = await supabase
       .from('profiles')
-      .select('id,name,email,role,trial_days,created_at')
+      .select('id,name,first_name,last_name,email,phone,birth_date,cpf,role,created_at')
       .order('created_at', { ascending: true });
     if (error) {
       console.error('Erro ao carregar usuários:', error);
       return [];
     }
-    const mapped = (data || []).map(profileToUser);
+    const mapped = (data || []).map((profile) => profileToUser(profile, null, null));
     setUsers(mapped);
     return mapped;
   };
@@ -40,11 +77,12 @@ export const AuthProvider = ({ children }) => {
     }
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('id,name,email,role,trial_days,created_at')
+      .select('id,name,first_name,last_name,email,phone,birth_date,cpf,role,created_at,phone_verified_at')
       .eq('id', authUser.id)
       .maybeSingle();
     if (error) console.error('Erro ao carregar perfil:', error);
-    const mapped = profileToUser(profile, authUser);
+    const subscription = await loadSubscription(authUser.id);
+    const mapped = profileToUser(profile, authUser, subscription);
     setUser(mapped);
     return mapped;
   };
@@ -62,7 +100,12 @@ export const AuthProvider = ({ children }) => {
       const { data, error } = await supabase.auth.getSession();
       if (!mounted) return;
       if (error) {
-        setAuthError(error.message);
+        console.warn('Sessão Supabase inválida. Limpando sessão local:', error);
+        clearSupabaseAuthStorage();
+        await supabase.auth.signOut({ scope: 'local' });
+        setUser(null);
+        setUsers([]);
+        setAuthError('Sessão expirada. Faça login novamente.');
         setLoading(false);
         return;
       }
@@ -105,8 +148,93 @@ export const AuthProvider = ({ children }) => {
     return { success: true };
   };
 
+  const signup = async ({ firstName, lastName, phone, email, birthDate, cpf, password }) => {
+    if (!supabase) return { success: false, error: 'Supabase não configurado.' };
+    const cleanCpf = (cpf || '').replace(/\D/g, '');
+    const fullName = `${firstName || ''} ${lastName || ''}`.trim();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: {
+          name: fullName,
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          birth_date: birthDate,
+          cpf: cleanCpf,
+        }
+      }
+    });
+    if (error) return { success: false, error: error.message };
+
+    if (data.user && data.session) {
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: data.user.id,
+        name: fullName,
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        email,
+        birth_date: birthDate || null,
+        cpf: cleanCpf,
+        role: 'user',
+      });
+      if (profileError) return { success: false, error: profileError.message };
+    }
+
+    return {
+      success: true,
+      needsEmailConfirmation: !data.session,
+      message: data.session
+        ? 'Cadastro criado. Escolha seu teste grátis ou assinatura.'
+        : 'Cadastro criado. Confira seu e-mail para validar a conta antes de entrar.'
+    };
+  };
+
+  const startTrial = async () => {
+    if (!supabase || !user?.id) return { success: false, error: 'Usuário não autenticado.' };
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('subscriptions').upsert({
+      user_id: user.id,
+      plan_code: 'trial_15',
+      status: 'trialing',
+      starts_at: now,
+      trial_ends_at: addDays(now, 15),
+      ends_at: addDays(now, 15),
+      amount_cents: 0,
+      currency: 'BRL',
+      payment_provider: 'manual',
+    }, { onConflict: 'user_id' });
+    if (error) return { success: false, error: error.message };
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) await loadCurrentUser(authUser);
+    return { success: true };
+  };
+
+  const choosePlan = async (plan) => {
+    if (!supabase || !user?.id) return { success: false, error: 'Usuário não autenticado.' };
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('subscriptions').upsert({
+      user_id: user.id,
+      plan_code: plan.id,
+      status: 'pending_payment',
+      starts_at: now,
+      ends_at: null,
+      amount_cents: Math.round(Number(plan.price || 0) * 100),
+      currency: 'BRL',
+      payment_provider: 'manual',
+    }, { onConflict: 'user_id' });
+    if (error) return { success: false, error: error.message };
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) await loadCurrentUser(authUser);
+    return { success: true };
+  };
+
   const logout = async () => {
-    if (supabase) await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut({ scope: 'local' });
+    clearSupabaseAuthStorage();
     setUser(null);
     setUsers([]);
   };
@@ -128,8 +256,20 @@ export const AuthProvider = ({ children }) => {
         name,
         email,
         role,
-        trial_days: Number(trialDays)
       });
+      if (Number(trialDays) > 0) {
+        await supabase.from('subscriptions').upsert({
+          user_id: data.user.id,
+          plan_code: 'trial_admin',
+          status: 'trialing',
+          starts_at: new Date().toISOString(),
+          trial_ends_at: addDays(new Date(), Number(trialDays)),
+          ends_at: addDays(new Date(), Number(trialDays)),
+          amount_cents: 0,
+          currency: 'BRL',
+          payment_provider: 'manual',
+        }, { onConflict: 'user_id' });
+      }
     }
     await loadUsers();
     return { success: true };
@@ -142,10 +282,19 @@ export const AuthProvider = ({ children }) => {
     authError,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
+    hasActiveSubscription: user?.role === 'admin' || Boolean(user?.hasActiveSubscription),
     login,
+    signup,
     logout,
     createUser,
-    refreshUsers: loadUsers
+    startTrial,
+    choosePlan,
+    refreshUsers: loadUsers,
+    refreshCurrentUser: async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) return loadCurrentUser(data.user);
+      return null;
+    }
   }), [user, users, loading, authError]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

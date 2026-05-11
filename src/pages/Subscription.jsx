@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CreditCard, Check, Star, Zap, Crown, Clock, AlertCircle } from 'lucide-react';
 import './Subscription.css';
@@ -49,9 +50,13 @@ const PLANS = [
   }
 ];
 
-export default function Subscription() {
-  const { user } = useAuth();
+export default function Subscription({ onboarding = false }) {
+  const { user, startTrial, choosePlan, logout } = useAuth();
+  const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const trialDaysLeft = (() => {
     if (!user?.trialDays || !user?.createdAt) return 0;
@@ -69,9 +74,31 @@ export default function Subscription() {
   return (
     <div className="subscription-page container animate-fade-in">
       <div className="sub-header">
-        <h2>Gerenciamento de Assinatura</h2>
-        <p className="text-muted">Escolha o plano ideal para a sua operação agrícola.</p>
+        <h2>{onboarding ? 'Escolha como começar' : 'Gerenciamento de Assinatura'}</h2>
+        <p className="text-muted">{onboarding ? 'Ative seu teste grátis de 15 dias ou escolha uma assinatura.' : 'Escolha o plano ideal para a sua operação agrícola.'}</p>
+        {onboarding && <button className="btn btn-secondary" onClick={logout} style={{ marginTop: '1rem' }}>Sair e trocar usuário</button>}
       </div>
+
+      {(message || error) && (
+        <div className={`alert ${error ? 'danger' : 'success'}`} style={{ marginBottom: '1rem' }}>
+          {error || message}
+        </div>
+      )}
+
+      {onboarding && (
+        <div className="sub-status-card card" style={{ border: '2px solid var(--color-primary)' }}>
+          <div className="sub-status-left">
+            <div className="sub-status-icon"><Clock size={24} /></div>
+            <div>
+              <h3>Teste grátis de 15 dias</h3>
+              <p className="text-muted">Comece agora sem pagamento. Depois você pode escolher um plano.</p>
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={handleStartTrial} disabled={saving}>
+            Começar teste grátis
+          </button>
+        </div>
+      )}
 
       {/* Status Card */}
       <div className="sub-status-card card">
@@ -127,8 +154,9 @@ export default function Subscription() {
               className={`btn ${plan.highlight ? 'btn-primary' : 'btn-secondary'}`}
               style={plan.highlight ? { backgroundColor: plan.color } : {}}
               onClick={() => handleSelectPlan(plan.id)}
+              disabled={saving}
             >
-              Assinar Agora
+              {selectedPlan === plan.id ? 'Selecionado' : 'Assinar Agora'}
             </button>
           </div>
         ))}
