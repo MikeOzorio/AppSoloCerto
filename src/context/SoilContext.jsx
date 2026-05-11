@@ -34,97 +34,188 @@ const defaultParameters = {
   m: { symbol: 'm%', group: 'indices', name: 'Saturação por Al', unit: '%', ranges: createRanges(10, 20, 40) }
 };
 
-// Clones pré-carregados: Espírito Santo e Rondônia
 const defaultClones = [
-  // Espírito Santo (Incaper)
   { id: 'es1', name: 'Vitória Incaper 8142', origin: 'ES', description: 'Alta produtividade, grãos grandes' },
   { id: 'es2', name: 'Diamante ES8112', origin: 'ES', description: 'Tolerante à seca, maturação uniforme' },
   { id: 'es3', name: 'Jequitibá ES8122', origin: 'ES', description: 'Vigor vegetativo, boa qualidade de bebida' },
   { id: 'es4', name: 'Centenária ES8132', origin: 'ES', description: 'Resistência à ferrugem' },
   { id: 'es5', name: 'Robustão Capixaba (Emcaper 8151)', origin: 'ES', description: 'Altamente produtivo' },
   { id: 'es6', name: 'Tributun (Incaper 8152)', origin: 'ES', description: 'Tolerância à seca' },
-  { id: 'es7', name: 'Bamburral (Incaper 8121)', origin: 'ES', description: 'Grãos de peneira alta' },
-  { id: 'es8', name: 'Pirata (Incaper 8111)', origin: 'ES', description: 'Precoce, produtivo' },
-  { id: 'es9', name: 'Verdim (Incaper 8131)', origin: 'ES', description: 'Boa adaptação regional' },
-  { id: 'es10', name: 'P2 (Clone 02)', origin: 'ES', description: 'Clone tradicional capixaba' },
-  { id: 'es11', name: 'Clone 03 (Emcapa 03)', origin: 'ES', description: 'Clone tradicional capixaba' },
-  { id: 'es12', name: 'Clone 12 (Emcapa 12)', origin: 'ES', description: 'Peneira alta, produtivo' },
-  { id: 'es13', name: 'Clone 153 (Emcapa 153)', origin: 'ES', description: 'Produtivo, rústico' },
-  // Rondônia (Embrapa)
   { id: 'ro1', name: 'BRS Ouro Preto (Cpafro 199)', origin: 'RO', description: 'Alta produtividade, tolerante à seca' },
   { id: 'ro2', name: 'Conilon BRS 1216 (Robusta Amazônico)', origin: 'RO', description: 'Adaptado ao clima amazônico' },
   { id: 'ro3', name: 'Cpafro 194', origin: 'RO', description: 'Boa qualidade de bebida' },
-  { id: 'ro4', name: 'Cpafro 167', origin: 'RO', description: 'Vigor vegetativo alto' },
-  { id: 'ro5', name: 'Cpafro 180', origin: 'RO', description: 'Maturação uniforme' },
-  { id: 'ro6', name: 'Cpafro 160', origin: 'RO', description: 'Precoce, grãos grandes' },
-  { id: 'ro7', name: 'Robusta Tropical (BRS 2299)', origin: 'RO', description: 'Tolerante à ferrugem' },
-  { id: 'ro8', name: 'Cpafro 175', origin: 'RO', description: 'Altamente produtivo em Rondônia' },
 ];
 
-// Recomendações Padrão de Produtividade
 const defaultRecommendations = [
-  {
-    id: 'rec1',
-    name: 'Até 30 sacas/ha',
-    nutrients: { N: 150, P2O5: 40, K2O: 120 }
-  },
-  {
-    id: 'rec2',
-    name: '31 - 50 sacas/ha',
-    nutrients: { N: 320, P2O5: 60, K2O: 200 }
-  },
-  {
-    id: 'rec3',
-    name: 'Acima de 50 sacas/ha',
-    nutrients: { N: 400, P2O5: 80, K2O: 300 }
-  }
+  { id: 'ate_30', name: 'Até 30 sacas/ha', nutrients: { N: 150, P2O5: 40, K2O: 120 } },
+  { id: '31_50', name: '31 - 50 sacas/ha', nutrients: { N: 320, P2O5: 60, K2O: 200 } },
+  { id: 'acima_50', name: 'Acima de 50 sacas/ha', nutrients: { N: 400, P2O5: 80, K2O: 300 } }
 ];
-
-const DATA_KEYS = {
-  parameters: 'parameters_v5',
-  history: 'history',
-  clones: 'clones',
-  properties: 'properties',
-  recommendations: 'recommendations',
-  cropPlans: 'cropPlans',
-  fertilizationMonths: 'fertilizationMonths'
-};
-
-const cloneValue = (value) => JSON.parse(JSON.stringify(value));
 
 const normalizeForJson = (value) => JSON.parse(JSON.stringify(value, (_key, val) => {
   if (typeof val === 'number' && !Number.isFinite(val)) return null;
   return val;
 }));
 
-async function loadUserData(userId) {
-  if (!supabase || !userId) return {};
-  const { data, error } = await supabase.from('app_data').select('data_key,data').eq('user_id', userId);
-  if (error) {
-    console.error('Erro ao carregar dados do Supabase:', error);
-    return {};
+const toNumberOrNull = (value) => {
+  if (value === '' || value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const showDbError = (operation, error) => {
+  console.error(operation, error);
+  if (typeof window !== 'undefined') {
+    window.alert(`Erro ao salvar/carregar no banco (${operation}): ${error?.message || error}`);
   }
-  return (data || []).reduce((acc, row) => {
-    acc[row.data_key] = row.data;
+};
+
+const mapParameterRows = (rows = []) => {
+  const mapped = { ...defaultParameters };
+  rows.forEach((row) => {
+    mapped[row.param_key] = {
+      id: row.id,
+      symbol: row.symbol,
+      group: row.parameter_group,
+      name: row.name,
+      unit: row.unit || '',
+      ranges: row.ranges || []
+    };
+  });
+  return mapped;
+};
+
+const mapCloneRow = (row) => ({
+  id: row.id,
+  code: row.code,
+  name: row.name,
+  origin: row.origin,
+  description: row.description || ''
+});
+
+const mapRecommendationRow = (row) => ({
+  id: row.id,
+  code: row.code,
+  name: row.name,
+  minBagsPerHa: row.min_bags_per_ha,
+  maxBagsPerHa: row.max_bags_per_ha,
+  nutrients: row.nutrients || {}
+});
+
+const mapPropertyRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  area: row.area ?? '',
+  talhoes: row.talhoes || []
+});
+
+const mapAnalysisRow = (row) => ({
+  id: row.id,
+  ...(row.metadata || {}),
+  fileName: row.file_name || row.metadata?.fileName,
+  data: row.metadata?.data || row.analysis_date,
+  propertyId: row.property_id,
+  talhaoId: row.talhao_id,
+  results: row.results || {}
+});
+
+const mapCropPlanRow = (row) => ({
+  id: row.id,
+  cropYear: String(row.crop_year || ''),
+  propertyId: row.property_id || '',
+  talhaoId: row.talhao_id || '',
+  recommendationId: row.recommendation_id || '',
+  nutrients: row.nutrients || [],
+  selectedMonths: row.selected_months || {},
+  totalCost: row.total_cost,
+  createdAt: row.created_at
+});
+
+
+const getLevelInfoFromParameters = (parameters, key, value) => {
+  if (!value || isNaN(value)) return { name: 'N/A', color: 'var(--color-text-muted)' };
+  const val = parseFloat(value);
+  const param = parameters[key];
+  if (!param) return { name: 'N/A', color: 'var(--color-text-muted)' };
+  for (const range of param.ranges || []) {
+    const maxVal = range.max === null || range.max === undefined ? Infinity : Number(range.max);
+    if (val <= maxVal) return { name: range.name, color: range.color };
+  }
+  const last = param.ranges?.[param.ranges.length - 1];
+  return last ? { name: last.name, color: last.color } : { name: 'N/A', color: 'var(--color-text-muted)' };
+};
+
+const mapTalhaoRow = (row) => ({
+  id: row.id,
+  propertyId: row.property_id,
+  name: row.name,
+  area: row.area ?? '',
+  dataPlantio: row.planting_date || '',
+  clones: (row.plot_clones || []).map((pc) => ({
+    id: pc.id,
+    cloneId: pc.clone_id,
+    quantidade: pc.quantity ?? '',
+    cloneName: pc.coffee_clones?.name
+  }))
+});
+
+const mapPropertyRelationalRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  area: row.area ?? '',
+  talhoes: (row.property_plots || []).map(mapTalhaoRow)
+});
+
+const mapAnalysisRelationalRow = (row) => ({
+  id: row.id,
+  ...(row.metadata || {}),
+  fileName: row.file_name || row.metadata?.fileName,
+  data: row.metadata?.data || row.analysis_date,
+  propertyId: row.property_id,
+  talhaoId: row.plot_id || row.talhao_id,
+  plotId: row.plot_id,
+  results: row.results || Object.fromEntries((row.soil_analysis_results || []).map((item) => [item.parameter_key, String(item.value ?? '')]))
+});
+
+const mapCropPlanRelationalRow = (row) => {
+  const nutrientsFromRows = (row.crop_plan_nutrients || []).map((item) => ({
+    id: item.id,
+    nutrient: item.nutrient,
+    need: item.need_kg_per_ha ?? '',
+    fertilizer: item.fertilizer_name || '',
+    percentage: item.fertilizer_percentage ?? '',
+    bagSize: item.bag_size_kg ?? '',
+    price: item.bag_price ?? '',
+    calculatedCost: item.calculated_cost ?? 0
+  }));
+  const monthsFromRows = (row.crop_plan_months || []).reduce((acc, item) => {
+    const nutrient = item.nutrient;
+    if (!acc[nutrient]) acc[nutrient] = [];
+    acc[nutrient].push(item.month_number);
     return acc;
   }, {});
-}
+  return {
+    id: row.id,
+    cropYear: String(row.crop_year || ''),
+    propertyId: row.property_id || '',
+    talhaoId: row.plot_id || row.talhao_id || '',
+    plotId: row.plot_id || '',
+    recommendationId: row.productivity_table_id || row.recommendation_id || '',
+    nutrients: nutrientsFromRows.length ? nutrientsFromRows : (row.nutrients || []),
+    selectedMonths: Object.keys(monthsFromRows).length ? monthsFromRows : (row.selected_months || {}),
+    totalCost: row.total_cost,
+    createdAt: row.created_at
+  };
+};
 
-async function saveUserData(userId, dataKey, data) {
-  if (!supabase || !userId) return;
-  const { error } = await supabase.from('app_data').upsert({
-    user_id: userId,
-    data_key: dataKey,
-    data: normalizeForJson(data),
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'user_id,data_key' });
-  if (error) {
-    console.error(`Erro ao salvar ${dataKey} no Supabase:`, error);
-    if (typeof window !== 'undefined') {
-      window.alert(`Não foi possível salvar no banco de dados (${dataKey}). Verifique as policies/RLS do Supabase. Detalhe: ${error.message}`);
-    }
-  }
-}
+const calculateNutrientCost = (row) => {
+  const need = Number(row.need || 0);
+  const percentage = Number(row.percentage || 0);
+  const bagSize = Number(row.bagSize || 50);
+  const price = Number(row.price || 0);
+  if (!need || !percentage || !bagSize || !price) return 0;
+  return (need / (percentage / 100) / bagSize) * price;
+};
 
 export const SoilProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
@@ -137,97 +228,339 @@ export const SoilProvider = ({ children }) => {
   const [cropPlans, setCropPlans] = useState([]);
   const [fertilizationMonths, setFertilizationMonthsState] = useState({});
 
-  const persist = (dataKey, setter) => (updater) => {
-    setter(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (user?.id) saveUserData(user.id, dataKey, next);
-      return next;
-    });
-  };
+  const refreshData = async () => {
+    if (!supabase || !user?.id) return;
+    setLoading(true);
+    try {
+      const [parametersRes, clonesRes, productivityRes, propertiesRes, analysesRes, cropPlansRes, settingsRes] = await Promise.all([
+        supabase.from('analysis_parameters').select('*').or(`owner_id.is.null,owner_id.eq.${user.id}`).order('created_at', { ascending: true }),
+        supabase.from('coffee_clones').select('*').or(`owner_id.is.null,owner_id.eq.${user.id}`).eq('active', true).order('origin', { ascending: true }),
+        supabase.from('productivity_tables').select('*').or(`owner_id.is.null,owner_id.eq.${user.id}`).eq('active', true).order('created_at', { ascending: true }),
+        supabase
+          .from('properties')
+          .select('*, property_plots(*, plot_clones(*, coffee_clones(name)))')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('soil_analyses')
+          .select('*, soil_analysis_results(*)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('crop_plans')
+          .select('*, crop_plan_nutrients(*), crop_plan_months(*)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase.from('user_settings').select('setting_key,setting_value').eq('user_id', user.id)
+      ]);
 
-  const setParametersPersisted = persist(DATA_KEYS.parameters, setParameters);
-  const setHistoryPersisted = persist(DATA_KEYS.history, setHistory);
-  const setClonesPersisted = persist(DATA_KEYS.clones, setClones);
-  const setPropertiesPersisted = persist(DATA_KEYS.properties, setProperties);
-  const setRecommendationsPersisted = persist(DATA_KEYS.recommendations, setRecommendations);
-  const setCropPlansPersisted = persist(DATA_KEYS.cropPlans, setCropPlans);
-  const setFertilizationMonthsPersisted = persist(DATA_KEYS.fertilizationMonths, setFertilizationMonthsState);
+      const firstError = [parametersRes, clonesRes, productivityRes, propertiesRes, analysesRes, cropPlansRes, settingsRes]
+        .find((response) => response.error)?.error;
+      if (firstError) throw firstError;
+
+      setParameters(parametersRes.data?.length ? mapParameterRows(parametersRes.data) : defaultParameters);
+      setClones(clonesRes.data?.length ? clonesRes.data.map(mapCloneRow) : defaultClones);
+      setRecommendations(productivityRes.data?.length ? productivityRes.data.map(mapRecommendationRow) : defaultRecommendations);
+      setProperties((propertiesRes.data || []).map(mapPropertyRelationalRow));
+      setHistory((analysesRes.data || []).map(mapAnalysisRelationalRow));
+      setCropPlans((cropPlansRes.data || []).map(mapCropPlanRelationalRow));
+
+      const monthsSetting = (settingsRes.data || []).find((row) => row.setting_key === 'fertilizationMonths');
+      setFertilizationMonthsState(monthsSetting?.setting_value || {});
+    } catch (error) {
+      showDbError('carregar dados relacionais', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!isAuthenticated || !user?.id) {
-        setParameters(defaultParameters);
-        setHistory([]);
-        setClones(defaultClones);
-        setProperties([]);
-        setRecommendations(defaultRecommendations);
-        setCropPlans([]);
-        setFertilizationMonthsState({});
-        return;
-      }
-      setLoading(true);
-      const stored = await loadUserData(user.id);
-      if (cancelled) return;
-      setParameters(stored[DATA_KEYS.parameters] || cloneValue(defaultParameters));
-      setHistory(stored[DATA_KEYS.history] || []);
-      setClones(stored[DATA_KEYS.clones] || cloneValue(defaultClones));
-      setProperties(stored[DATA_KEYS.properties] || []);
-      setRecommendations(stored[DATA_KEYS.recommendations] || cloneValue(defaultRecommendations));
-      setCropPlans(stored[DATA_KEYS.cropPlans] || []);
-      setFertilizationMonthsState(stored[DATA_KEYS.fertilizationMonths] || {});
-      setLoading(false);
-    };
-    load();
-    return () => { cancelled = true; };
+    if (!isAuthenticated || !user?.id) {
+      setParameters(defaultParameters);
+      setHistory([]);
+      setClones(defaultClones);
+      setProperties([]);
+      setRecommendations(defaultRecommendations);
+      setCropPlans([]);
+      setFertilizationMonthsState({});
+      return;
+    }
+    refreshData();
   }, [isAuthenticated, user?.id]);
 
-  const updateParameterRanges = (key, newRanges) => {
-    setParametersPersisted(prev => ({
-      ...prev,
-      [key]: { ...prev[key], ranges: newRanges }
-    }));
+  const updateParameterRanges = async (key, newRanges) => {
+    const current = parameters[key];
+    const next = { ...current, ranges: newRanges };
+    setParameters(prev => ({ ...prev, [key]: next }));
+    if (!user?.id) return;
+    const { error } = await supabase.from('analysis_parameters').upsert({
+      owner_id: user.id,
+      param_key: key,
+      symbol: next.symbol,
+      name: next.name,
+      parameter_group: next.group,
+      unit: next.unit || '',
+      ranges: normalizeForJson(newRanges),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'owner_id,param_key' });
+    if (error) showDbError('salvar parâmetros de análise', error);
   };
 
-  const getLevelInfo = (key, value) => {
-    if (!value || isNaN(value)) return { name: 'N/A', color: 'var(--color-text-muted)' };
-    const val = parseFloat(value);
-    const param = parameters[key];
-    if (!param) return { name: 'N/A', color: 'var(--color-text-muted)' };
-    for (const range of param.ranges) {
-      const maxVal = range.max === null || range.max === undefined ? Infinity : Number(range.max);
-      if (val <= maxVal) return { name: range.name, color: range.color };
+  const getLevelInfo = (key, value) => getLevelInfoFromParameters(parameters, key, value);
+
+  const saveAnalysis = async (metadata, results) => {
+    if (!user?.id) return;
+    const linkedTargets = metadata.linkedProperties?.length ? metadata.linkedProperties : ['__global__'];
+    const savedRows = [];
+
+    for (const target of linkedTargets) {
+      const isPlot = String(target).includes('__');
+      const [propertyId, plotId] = isPlot ? String(target).split('__') : [target === '__global__' ? null : target, null];
+      const payload = {
+        user_id: user.id,
+        property_id: propertyId || metadata.propertyId || null,
+        plot_id: plotId || metadata.plotId || metadata.talhaoId || null,
+        talhao_id: plotId || metadata.talhaoId || null,
+        title: metadata.amostra || metadata.fileName || 'Análise de Solo',
+        file_name: metadata.fileName || null,
+        analysis_date: metadata.analysisDate || null,
+        metadata: normalizeForJson({ ...metadata, propertyId: propertyId || metadata.propertyId || null, talhaoId: plotId || metadata.talhaoId || null }),
+        results: normalizeForJson(results)
+      };
+      const { data, error } = await supabase.from('soil_analyses').insert(payload).select('*').single();
+      if (error) return showDbError('salvar análise de solo', error);
+
+      const resultRows = Object.entries(results || {}).map(([parameterKey, rawValue]) => {
+        const value = toNumberOrNull(rawValue);
+        const levelInfo = getLevelInfoFromParameters(parameters, parameterKey, rawValue);
+        return {
+          analysis_id: data.id,
+          parameter_key: parameterKey,
+          value,
+          unit: parameters[parameterKey]?.unit || '',
+          level_name: levelInfo.name,
+          level_color: levelInfo.color
+        };
+      });
+      if (resultRows.length) {
+        const { error: itemError } = await supabase.from('soil_analysis_results').insert(resultRows);
+        if (itemError) return showDbError('salvar itens da análise de solo', itemError);
+      }
+      savedRows.push(mapAnalysisRelationalRow({ ...data, soil_analysis_results: resultRows }));
     }
-    const last = param.ranges[param.ranges.length - 1];
-    return { name: last.name, color: last.color };
+    setHistory(prev => [...savedRows, ...prev]);
   };
 
-  // History
-  const saveAnalysis = (metadata, results) => {
-    const newEntry = { id: Date.now().toString(), ...metadata, results };
-    setHistoryPersisted(prev => [newEntry, ...prev]);
+  const deleteAnalysis = async (id) => {
+    const { error } = await supabase.from('soil_analyses').delete().eq('id', id).eq('user_id', user.id);
+    if (error) return showDbError('excluir análise de solo', error);
+    setHistory(prev => prev.filter(a => a.id !== id));
   };
-  const deleteAnalysis = (id) => setHistoryPersisted(prev => prev.filter(a => a.id !== id));
-  const updateAnalysis = (id, data) => setHistoryPersisted(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
 
-  // Clones
-  const addClone = (clone) => setClonesPersisted(prev => [...prev, clone]);
-  const updateClone = (id, data) => setClonesPersisted(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-  const removeClone = (id) => setClonesPersisted(prev => prev.filter(c => c.id !== id));
+  const updateAnalysis = async (id, data) => {
+    const current = history.find(a => a.id === id) || {};
+    const metadata = { ...current, ...data };
+    delete metadata.results;
+    const { data: updated, error } = await supabase.from('soil_analyses').update({
+      title: metadata.amostra || metadata.fileName || 'Análise de Solo',
+      property_id: metadata.propertyId || null,
+      plot_id: metadata.plotId || metadata.talhaoId || null,
+      talhao_id: metadata.talhaoId || metadata.plotId || null,
+      metadata: normalizeForJson(metadata),
+      updated_at: new Date().toISOString()
+    }).eq('id', id).eq('user_id', user.id).select('*, soil_analysis_results(*)').single();
+    if (error) return showDbError('editar análise de solo', error);
+    setHistory(prev => prev.map(a => a.id === id ? mapAnalysisRelationalRow(updated) : a));
+  };
 
-  // Properties
-  const addProperty = (prop) => setPropertiesPersisted(prev => [...prev, prop]);
-  const updateProperty = (id, data) => setPropertiesPersisted(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
-  const removeProperty = (id) => setPropertiesPersisted(prev => prev.filter(p => p.id !== id));
+  const addClone = async (clone) => {
+    const payload = { owner_id: user.id, code: clone.code || null, name: clone.name, origin: clone.origin, description: clone.description || '' };
+    const { data, error } = await supabase.from('coffee_clones').insert(payload).select('*').single();
+    if (error) return showDbError('salvar clone', error);
+    setClones(prev => [...prev, mapCloneRow(data)]);
+  };
 
-  // Recommendations
-  const addRecommendation = (rec) => setRecommendationsPersisted(prev => [...prev, rec]);
-  const updateRecommendation = (id, data) => setRecommendationsPersisted(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
-  const removeRecommendation = (id) => setRecommendationsPersisted(prev => prev.filter(r => r.id !== id));
+  const updateClone = async (id, data) => {
+    const { data: updated, error } = await supabase.from('coffee_clones').update({
+      name: data.name,
+      origin: data.origin,
+      description: data.description || '',
+      updated_at: new Date().toISOString()
+    }).eq('id', id).eq('owner_id', user.id).select('*').single();
+    if (error) return showDbError('editar clone. Clones padrão não podem ser editados diretamente; crie um clone próprio.', error);
+    setClones(prev => prev.map(c => c.id === id ? mapCloneRow(updated) : c));
+  };
 
-  // Crop Plans
-  const addCropPlan = (plan) => setCropPlansPersisted(prev => [...prev, plan]);
-  const removeCropPlan = (id) => setCropPlansPersisted(prev => prev.filter(p => p.id !== id));
+  const removeClone = async (id) => {
+    const { error } = await supabase.from('coffee_clones').delete().eq('id', id).eq('owner_id', user.id);
+    if (error) return showDbError('excluir clone. Clones padrão não podem ser excluídos.', error);
+    setClones(prev => prev.filter(c => c.id !== id));
+  };
+
+  const saveTalhoesForProperty = async (propertyId, talhoes = []) => {
+    const { error: deleteError } = await supabase.from('property_plots').delete().eq('property_id', propertyId).eq('user_id', user.id);
+    if (deleteError) throw deleteError;
+
+    for (const talhao of talhoes) {
+      const { data: plot, error: plotError } = await supabase.from('property_plots').insert({
+        user_id: user.id,
+        property_id: propertyId,
+        name: talhao.name || 'Talhão',
+        area: toNumberOrNull(talhao.area),
+        planting_date: talhao.dataPlantio || null
+      }).select('*').single();
+      if (plotError) throw plotError;
+
+      const cloneRows = (talhao.clones || [])
+        .filter((item) => item.cloneId)
+        .map((item) => ({
+          user_id: user.id,
+          property_id: propertyId,
+          plot_id: plot.id,
+          clone_id: item.cloneId,
+          quantity: toNumberOrNull(item.quantidade)
+        }));
+      if (cloneRows.length) {
+        const { error: cloneError } = await supabase.from('plot_clones').insert(cloneRows);
+        if (cloneError) throw cloneError;
+      }
+    }
+  };
+
+  const addProperty = async (prop) => {
+    try {
+      const { data, error } = await supabase.from('properties').insert({
+        user_id: user.id,
+        name: prop.name,
+        area: toNumberOrNull(prop.area),
+        talhoes: normalizeForJson(prop.talhoes || [])
+      }).select('*').single();
+      if (error) throw error;
+      await saveTalhoesForProperty(data.id, prop.talhoes || []);
+      await refreshData();
+    } catch (error) {
+      showDbError('salvar propriedade/talhões/clones', error);
+    }
+  };
+
+  const updateProperty = async (id, data) => {
+    try {
+      const { error } = await supabase.from('properties').update({
+        name: data.name,
+        area: toNumberOrNull(data.area),
+        talhoes: normalizeForJson(data.talhoes || []),
+        updated_at: new Date().toISOString()
+      }).eq('id', id).eq('user_id', user.id);
+      if (error) throw error;
+      await saveTalhoesForProperty(id, data.talhoes || []);
+      await refreshData();
+    } catch (error) {
+      showDbError('editar propriedade/talhões/clones', error);
+    }
+  };
+
+  const removeProperty = async (id) => {
+    const { error } = await supabase.from('properties').delete().eq('id', id).eq('user_id', user.id);
+    if (error) return showDbError('excluir propriedade', error);
+    setProperties(prev => prev.filter(p => p.id !== id));
+  };
+
+  const addRecommendation = async (rec) => {
+    const { data, error } = await supabase.from('productivity_tables').insert({
+      owner_id: user.id,
+      code: rec.code || null,
+      name: rec.name,
+      min_bags_per_ha: toNumberOrNull(rec.minBagsPerHa),
+      max_bags_per_ha: toNumberOrNull(rec.maxBagsPerHa),
+      nutrients: normalizeForJson(rec.nutrients || {})
+    }).select('*').single();
+    if (error) return showDbError('salvar tabela de produtividade', error);
+    setRecommendations(prev => [...prev, mapRecommendationRow(data)]);
+  };
+
+  const updateRecommendation = async (id, data) => {
+    const { data: updated, error } = await supabase.from('productivity_tables').update({
+      name: data.name,
+      min_bags_per_ha: toNumberOrNull(data.minBagsPerHa),
+      max_bags_per_ha: toNumberOrNull(data.maxBagsPerHa),
+      nutrients: normalizeForJson(data.nutrients || {}),
+      updated_at: new Date().toISOString()
+    }).eq('id', id).eq('owner_id', user.id).select('*').single();
+    if (error) return showDbError('editar tabela de produtividade. Faixas padrão não podem ser editadas diretamente; crie uma faixa própria.', error);
+    setRecommendations(prev => prev.map(r => r.id === id ? mapRecommendationRow(updated) : r));
+  };
+
+  const removeRecommendation = async (id) => {
+    const { error } = await supabase.from('productivity_tables').delete().eq('id', id).eq('owner_id', user.id);
+    if (error) return showDbError('excluir tabela de produtividade. Faixas padrão não podem ser excluídas.', error);
+    setRecommendations(prev => prev.filter(r => r.id !== id));
+  };
+
+  const addCropPlan = async (plan) => {
+    try {
+      const totalCost = plan.totalCost ?? (plan.nutrients || []).reduce((acc, row) => acc + calculateNutrientCost(row), 0);
+      const { data, error } = await supabase.from('crop_plans').insert({
+        user_id: user.id,
+        crop_year: Number(plan.cropYear),
+        property_id: plan.propertyId || null,
+        plot_id: plan.talhaoId || plan.plotId || null,
+        talhao_id: plan.talhaoId || null,
+        productivity_table_id: selectedRecommendationIdToUuid(plan.recommendationId, recommendations),
+        recommendation_id: plan.recommendationId || null,
+        nutrients: normalizeForJson(plan.nutrients || []),
+        selected_months: normalizeForJson(plan.selectedMonths || {}),
+        total_cost: toNumberOrNull(totalCost)
+      }).select('*').single();
+      if (error) throw error;
+
+      const nutrientRows = (plan.nutrients || []).map((row) => ({
+        crop_plan_id: data.id,
+        nutrient: row.nutrient || '',
+        need_kg_per_ha: toNumberOrNull(row.need),
+        fertilizer_name: row.fertilizer || '',
+        fertilizer_percentage: toNumberOrNull(row.percentage),
+        bag_size_kg: toNumberOrNull(row.bagSize),
+        bag_price: toNumberOrNull(row.price),
+        calculated_cost: toNumberOrNull(row.calculatedCost ?? calculateNutrientCost(row))
+      }));
+      if (nutrientRows.length) {
+        const { error: nutrientError } = await supabase.from('crop_plan_nutrients').insert(nutrientRows);
+        if (nutrientError) throw nutrientError;
+      }
+
+      const monthRows = [];
+      Object.entries(plan.selectedMonths || {}).forEach(([nutrient, months]) => {
+        (months || []).forEach((month) => {
+          monthRows.push({ crop_plan_id: data.id, nutrient, month_number: Number(month) });
+        });
+      });
+      if (monthRows.length) {
+        const { error: monthError } = await supabase.from('crop_plan_months').insert(monthRows);
+        if (monthError) throw monthError;
+      }
+      await refreshData();
+    } catch (error) {
+      showDbError('salvar planejamento de safra relacional', error);
+    }
+  };
+
+  const removeCropPlan = async (id) => {
+    const { error } = await supabase.from('crop_plans').delete().eq('id', id).eq('user_id', user.id);
+    if (error) return showDbError('excluir planejamento de safra', error);
+    setCropPlans(prev => prev.filter(p => p.id !== id));
+  };
+
+  const setFertilizationMonths = async (months) => {
+    setFertilizationMonthsState(months);
+    if (!user?.id) return;
+    const { error } = await supabase.from('user_settings').upsert({
+      user_id: user.id,
+      setting_key: 'fertilizationMonths',
+      setting_value: normalizeForJson(months),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,setting_key' });
+    if (error) showDbError('salvar divisão mensal global', error);
+  };
 
   return (
     <SoilContext.Provider value={{
@@ -237,12 +570,18 @@ export const SoilProvider = ({ children }) => {
       properties, addProperty, updateProperty, removeProperty,
       recommendations, addRecommendation, updateRecommendation, removeRecommendation,
       cropPlans, addCropPlan, removeCropPlan,
-      fertilizationMonths, setFertilizationMonths: setFertilizationMonthsPersisted,
-      loading
+      fertilizationMonths, setFertilizationMonths,
+      loading, refreshData
     }}>
       {children}
     </SoilContext.Provider>
   );
+};
+
+const selectedRecommendationIdToUuid = (id, recommendations) => {
+  const rec = recommendations.find((item) => item.id === id);
+  if (!rec?.id) return null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rec.id) ? rec.id : null;
 };
 
 export const useSoil = () => useContext(SoilContext);

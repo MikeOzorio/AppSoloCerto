@@ -320,3 +320,188 @@ drop policy if exists "user_settings_all_own" on public.user_settings;
 create policy "user_settings_all_own" on public.user_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "app_data_all_own" on public.app_data;
 create policy "app_data_all_own" on public.app_data for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- =====================================================
+-- 8) MODELO RELACIONAL POR TELA - PROPRIEDADES, TALHÕES,
+--    CLONES, ANÁLISES E PLANEJAMENTO DE SAFRA
+-- =====================================================
+-- Este bloco mantém compatibilidade com as colunas antigas JSON,
+-- mas passa a gravar os dados em tabelas próprias com foreign keys.
+
+create table if not exists public.property_plots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  property_id uuid not null references public.properties(id) on delete cascade,
+  name text not null,
+  area numeric,
+  planting_date date,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_property_plots_user on public.property_plots(user_id);
+create index if not exists idx_property_plots_property on public.property_plots(property_id);
+
+create table if not exists public.plot_clones (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  property_id uuid not null references public.properties(id) on delete cascade,
+  plot_id uuid not null references public.property_plots(id) on delete cascade,
+  clone_id uuid references public.coffee_clones(id) on delete set null,
+  quantity numeric,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_plot_clones_user on public.plot_clones(user_id);
+create index if not exists idx_plot_clones_plot on public.plot_clones(plot_id);
+create index if not exists idx_plot_clones_clone on public.plot_clones(clone_id);
+
+alter table public.soil_analyses
+  add column if not exists plot_id uuid references public.property_plots(id) on delete set null;
+
+create index if not exists idx_soil_analyses_plot on public.soil_analyses(plot_id);
+
+create table if not exists public.soil_analysis_results (
+  id uuid primary key default gen_random_uuid(),
+  analysis_id uuid not null references public.soil_analyses(id) on delete cascade,
+  parameter_key text not null,
+  value numeric,
+  unit text,
+  level_name text,
+  level_color text,
+  created_at timestamptz not null default now(),
+  unique(analysis_id, parameter_key)
+);
+
+create index if not exists idx_soil_analysis_results_analysis on public.soil_analysis_results(analysis_id);
+
+alter table public.crop_plans
+  add column if not exists plot_id uuid references public.property_plots(id) on delete set null,
+  add column if not exists productivity_table_id uuid references public.productivity_tables(id) on delete set null;
+
+create index if not exists idx_crop_plans_plot on public.crop_plans(plot_id);
+create index if not exists idx_crop_plans_productivity on public.crop_plans(productivity_table_id);
+
+create table if not exists public.crop_plan_nutrients (
+  id uuid primary key default gen_random_uuid(),
+  crop_plan_id uuid not null references public.crop_plans(id) on delete cascade,
+  nutrient text not null,
+  need_kg_per_ha numeric,
+  fertilizer_name text,
+  fertilizer_percentage numeric,
+  bag_size_kg numeric,
+  bag_price numeric,
+  calculated_cost numeric,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_crop_plan_nutrients_plan on public.crop_plan_nutrients(crop_plan_id);
+
+create table if not exists public.crop_plan_months (
+  id uuid primary key default gen_random_uuid(),
+  crop_plan_id uuid not null references public.crop_plans(id) on delete cascade,
+  nutrient text not null,
+  month_number integer not null check (month_number between 1 and 12),
+  created_at timestamptz not null default now(),
+  unique(crop_plan_id, nutrient, month_number)
+);
+
+create index if not exists idx_crop_plan_months_plan on public.crop_plan_months(crop_plan_id);
+
+alter table public.property_plots enable row level security;
+alter table public.plot_clones enable row level security;
+alter table public.soil_analysis_results enable row level security;
+alter table public.crop_plan_nutrients enable row level security;
+alter table public.crop_plan_months enable row level security;
+
+-- Talhões: cada usuário acessa apenas os próprios talhões.
+drop policy if exists "property_plots_all_own" on public.property_plots;
+create policy "property_plots_all_own" on public.property_plots
+for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Clones vinculados ao talhão: cada usuário acessa apenas os próprios vínculos.
+drop policy if exists "plot_clones_all_own" on public.plot_clones;
+create policy "plot_clones_all_own" on public.plot_clones
+for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Itens de análise: acesso permitido se a análise pai pertence ao usuário.
+drop policy if exists "soil_analysis_results_select_own" on public.soil_analysis_results;
+create policy "soil_analysis_results_select_own" on public.soil_analysis_results
+for select using (
+  exists (
+    select 1 from public.soil_analyses a
+    where a.id = soil_analysis_results.analysis_id
+      and a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "soil_analysis_results_insert_own" on public.soil_analysis_results;
+create policy "soil_analysis_results_insert_own" on public.soil_analysis_results
+for insert with check (
+  exists (
+    select 1 from public.soil_analyses a
+    where a.id = soil_analysis_results.analysis_id
+      and a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "soil_analysis_results_update_own" on public.soil_analysis_results;
+create policy "soil_analysis_results_update_own" on public.soil_analysis_results
+for update using (
+  exists (
+    select 1 from public.soil_analyses a
+    where a.id = soil_analysis_results.analysis_id
+      and a.user_id = auth.uid()
+  )
+) with check (
+  exists (
+    select 1 from public.soil_analyses a
+    where a.id = soil_analysis_results.analysis_id
+      and a.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "soil_analysis_results_delete_own" on public.soil_analysis_results;
+create policy "soil_analysis_results_delete_own" on public.soil_analysis_results
+for delete using (
+  exists (
+    select 1 from public.soil_analyses a
+    where a.id = soil_analysis_results.analysis_id
+      and a.user_id = auth.uid()
+  )
+);
+
+-- Itens do planejamento: acesso permitido se o planejamento pai pertence ao usuário.
+drop policy if exists "crop_plan_nutrients_all_own" on public.crop_plan_nutrients;
+create policy "crop_plan_nutrients_all_own" on public.crop_plan_nutrients
+for all using (
+  exists (
+    select 1 from public.crop_plans p
+    where p.id = crop_plan_nutrients.crop_plan_id
+      and p.user_id = auth.uid()
+  )
+) with check (
+  exists (
+    select 1 from public.crop_plans p
+    where p.id = crop_plan_nutrients.crop_plan_id
+      and p.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "crop_plan_months_all_own" on public.crop_plan_months;
+create policy "crop_plan_months_all_own" on public.crop_plan_months
+for all using (
+  exists (
+    select 1 from public.crop_plans p
+    where p.id = crop_plan_months.crop_plan_id
+      and p.user_id = auth.uid()
+  )
+) with check (
+  exists (
+    select 1 from public.crop_plans p
+    where p.id = crop_plan_months.crop_plan_id
+      and p.user_id = auth.uid()
+  )
+);
