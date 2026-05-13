@@ -324,7 +324,7 @@ export const SoilProvider = ({ children }) => {
           .order('created_at', { ascending: false }),
         supabase
           .from('soil_analyses')
-          .select('*, soil_analysis_results(*)')
+          .select('*, soil_analysis_results!soil_analysis_results_analysis_id_fkey(*)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         supabase
@@ -524,7 +524,7 @@ export const SoilProvider = ({ children }) => {
       talhao_id: metadata.talhaoId || metadata.plotId || null,
       metadata: normalizeForJson(metadata),
       updated_at: new Date().toISOString()
-    }).eq('id', id).eq('user_id', user.id).select('*, soil_analysis_results(*)').single();
+    }).eq('id', id).eq('user_id', user.id).select('*, soil_analysis_results!soil_analysis_results_analysis_id_fkey(*)').single();
     if (error) return showDbError('editar análise de solo', error);
     setHistory(prev => prev.map(a => a.id === id ? mapAnalysisRelationalRow(updated) : a));
   };
