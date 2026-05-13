@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Coffee, Settings, FileText, History as HistoryIcon, MapPin, Leaf, LogOut, 
+  Coffee, Settings, FileText, History as HistoryIcon, MapPin, Leaf, LogOut, Tags, 
   Calculator, Users as UsersIcon, ChevronDown, Target, Moon, Sun, 
   CreditCard, HeadphonesIcon, Home, Menu, X, BarChart3, CalendarDays
 } from 'lucide-react';
@@ -57,7 +57,7 @@ export default function Sidebar() {
           {/* Cadastros */}
           <div className="sidebar-section">
             <button 
-              className={`sidebar-item section-toggle ${isSectionActive(['/properties', '/clones']) ? 'active' : ''}`}
+              className={`sidebar-item section-toggle ${isSectionActive(['/properties', '/clones', '/classifications']) ? 'active' : ''}`}
               onClick={() => toggleSection('cadastros')}
             >
               <MapPin size={20} />
@@ -75,6 +75,9 @@ export default function Sidebar() {
                 </Link>
                 <Link to="/clones" className={`sidebar-subitem ${isActive('/clones') ? 'active' : ''}`} onClick={handleNavClick}>
                   <Leaf size={16} /> Clones
+                </Link>
+                <Link to="/classifications" className={`sidebar-subitem ${isActive('/classifications') ? 'active' : ''}`} onClick={handleNavClick}>
+                  <Tags size={16} /> Classificações
                 </Link>
               </div>
             )}

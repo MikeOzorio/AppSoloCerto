@@ -1,0 +1,15 @@
+.classifications-page { padding-top: 2rem; padding-bottom: 4rem; }
+.classifications-header { margin-bottom: 2rem; }
+.classification-form-card { margin-bottom: 2rem; }
+.classification-form-card h3 { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; color: var(--color-primary); }
+.classification-form-grid { display: grid; grid-template-columns: 1fr 220px auto; gap: 1rem; align-items: end; }
+.add-classification-btn { height: 42px; }
+.classification-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.classification-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.classification-info { display: flex; align-items: center; gap: .75rem; }
+.classification-dot { width: 18px; height: 18px; border-radius: 999px; border: 1px solid var(--color-border); }
+.default-badge { margin-left: .5rem; font-size: .75rem; color: var(--color-text-muted); background: rgba(0,0,0,.06); padding: .15rem .4rem; border-radius: 999px; }
+.classification-actions { display: flex; gap: .5rem; }
+.classification-edit-grid { width: 100%; display: grid; grid-template-columns: 1fr 160px auto auto; gap: .5rem; align-items: center; }
+.empty-state { grid-column: 1 / -1; text-align: center; padding: 2rem; display: flex; justify-content: center; gap: .5rem; }
+@media (max-width: 760px) { .classification-form-grid, .classification-edit-grid { grid-template-columns: 1fr; } }

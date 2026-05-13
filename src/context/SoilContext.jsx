@@ -4,11 +4,33 @@ import { useAuth } from './AuthContext';
 
 const SoilContext = createContext();
 
+export const BASIC_CLASSIFICATION_COLORS = [
+  { name: 'Vermelho', value: '#ef4444' },
+  { name: 'Verde', value: '#22c55e' },
+  { name: 'Amarelo', value: '#eab308' },
+  { name: 'Laranja', value: '#f97316' },
+  { name: 'Roxo', value: '#8b5cf6' },
+  { name: 'Azul', value: '#3b82f6' },
+  { name: 'Cinza', value: '#6b7280' },
+  { name: 'Marrom', value: '#8b5a2b' }
+];
+
+const defaultClassifications = [
+  { id: 'default_muito_baixo', name: 'Muito baixo', color: '#ef4444' },
+  { id: 'default_baixo', name: 'Baixo', color: '#f97316' },
+  { id: 'default_medio', name: 'Médio', color: '#eab308' },
+  { id: 'default_adequado', name: 'Adequado', color: '#22c55e' },
+  { id: 'default_alto', name: 'Alto', color: '#3b82f6' },
+  { id: 'default_muito_alto', name: 'Muito alto', color: '#8b5cf6' },
+  { id: 'default_neutro', name: 'Neutro', color: '#6b7280' },
+  { id: 'default_alcalino', name: 'Alcalino', color: '#8b5cf6' }
+];
+
 const createRanges = (low, med, adeq) => [
-  { id: '1', name: 'Baixo', max: low, color: '#ef4444' },
-  { id: '2', name: 'Médio', max: med, color: '#fb923c' },
-  { id: '3', name: 'Adequado', max: adeq, color: '#22c55e' },
-  { id: '4', name: 'Muito Alto', max: Infinity, color: '#8b5cf6' }
+  { id: '1', classificationId: 'default_baixo', name: 'Baixo', comparisonType: 'lt', from: null, to: low, max: low, color: '#f97316' },
+  { id: '2', classificationId: 'default_medio', name: 'Médio', comparisonType: 'between', from: low, to: med, max: med, color: '#eab308' },
+  { id: '3', classificationId: 'default_adequado', name: 'Adequado', comparisonType: 'between', from: med, to: adeq, max: adeq, color: '#22c55e' },
+  { id: '4', classificationId: 'default_muito_alto', name: 'Muito Alto', comparisonType: 'gt', from: adeq, to: null, max: Infinity, color: '#8b5cf6' }
 ];
 
 const defaultParameters = {
@@ -70,16 +92,47 @@ const showDbError = (operation, error) => {
   }
 };
 
+const mapClassificationRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  color: row.color,
+  isDefault: row.owner_id === null,
+  sortOrder: row.sort_order ?? 0
+});
+
+const normalizeRangeRow = (row) => {
+  const classification = row.nutrient_classifications || row.classification || {};
+  const comparisonType = row.comparison_type || row.comparisonType || 'between';
+  const valueFrom = row.value_from ?? row.from ?? null;
+  const valueTo = row.value_to ?? row.to ?? row.max ?? null;
+  return {
+    id: row.id || `${row.classification_id || row.classificationId || row.name}-${row.sort_order || 0}`,
+    classificationId: row.classification_id || row.classificationId || classification.id || '',
+    name: classification.name || row.name || 'Classificação',
+    color: classification.color || row.color || '#6b7280',
+    comparisonType,
+    from: valueFrom,
+    to: valueTo,
+    max: comparisonType === 'gt' ? null : valueTo,
+    sortOrder: row.sort_order ?? 0
+  };
+};
+
 const mapParameterRows = (rows = []) => {
   const mapped = { ...defaultParameters };
   rows.forEach((row) => {
+    const relationalRanges = (row.analysis_parameter_ranges || [])
+      .slice()
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map(normalizeRangeRow);
+
     mapped[row.param_key] = {
       id: row.id,
       symbol: row.symbol,
       group: row.parameter_group,
       name: row.name,
       unit: row.unit || '',
-      ranges: row.ranges || []
+      ranges: relationalRanges.length ? relationalRanges : (row.ranges || []).map(normalizeRangeRow)
     };
   });
   return mapped;
@@ -133,13 +186,31 @@ const mapCropPlanRow = (row) => ({
 
 
 const getLevelInfoFromParameters = (parameters, key, value) => {
-  if (!value || isNaN(value)) return { name: 'N/A', color: 'var(--color-text-muted)' };
+  if (value === '' || value === null || value === undefined || isNaN(value)) return { name: 'N/A', color: 'var(--color-text-muted)' };
   const val = parseFloat(value);
   const param = parameters[key];
   if (!param) return { name: 'N/A', color: 'var(--color-text-muted)' };
+
   for (const range of param.ranges || []) {
-    const maxVal = range.max === null || range.max === undefined ? Infinity : Number(range.max);
-    if (val <= maxVal) return { name: range.name, color: range.color };
+    const type = range.comparisonType || range.comparison_type || 'between';
+    const from = range.from === '' || range.from === null || range.from === undefined ? null : Number(range.from);
+    const to = range.to === '' || range.to === null || range.to === undefined ? null : Number(range.to ?? range.max);
+
+    if (type === 'lt' && to !== null && val < to) return { name: range.name, color: range.color };
+    if (type === 'lte' && to !== null && val <= to) return { name: range.name, color: range.color };
+    if (type === 'gt' && from !== null && val > from) return { name: range.name, color: range.color };
+    if (type === 'gte' && from !== null && val >= from) return { name: range.name, color: range.color };
+    if (type === 'between') {
+      const fromOk = from === null || val >= from;
+      const toOk = to === null || val <= to;
+      if (fromOk && toOk) return { name: range.name, color: range.color };
+    }
+
+    // Compatibilidade com faixas antigas baseadas apenas em "Até".
+    if (!range.comparisonType && range.max !== undefined) {
+      const maxVal = range.max === null || range.max === undefined ? Infinity : Number(range.max);
+      if (val <= maxVal) return { name: range.name, color: range.color };
+    }
   }
   const last = param.ranges?.[param.ranges.length - 1];
   return last ? { name: last.name, color: last.color } : { name: 'N/A', color: 'var(--color-text-muted)' };
@@ -221,6 +292,7 @@ export const SoilProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [parameters, setParameters] = useState(defaultParameters);
+  const [classifications, setClassifications] = useState(defaultClassifications);
   const [history, setHistory] = useState([]);
   const [clones, setClones] = useState(defaultClones);
   const [properties, setProperties] = useState([]);
@@ -232,8 +304,17 @@ export const SoilProvider = ({ children }) => {
     if (!supabase || !user?.id) return;
     setLoading(true);
     try {
-      const [parametersRes, clonesRes, productivityRes, propertiesRes, analysesRes, cropPlansRes, settingsRes] = await Promise.all([
-        supabase.from('analysis_parameters').select('*').or(`owner_id.is.null,owner_id.eq.${user.id}`).order('created_at', { ascending: true }),
+      const [parametersRes, classificationsRes, clonesRes, productivityRes, propertiesRes, analysesRes, cropPlansRes, settingsRes] = await Promise.all([
+        supabase
+          .from('analysis_parameters')
+          .select('*, analysis_parameter_ranges(*, nutrient_classifications(*))')
+          .or(`owner_id.is.null,owner_id.eq.${user.id}`)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('nutrient_classifications')
+          .select('*')
+          .or(`owner_id.is.null,owner_id.eq.${user.id}`)
+          .order('sort_order', { ascending: true }),
         supabase.from('coffee_clones').select('*').or(`owner_id.is.null,owner_id.eq.${user.id}`).eq('active', true).order('origin', { ascending: true }),
         supabase.from('productivity_tables').select('*').or(`owner_id.is.null,owner_id.eq.${user.id}`).eq('active', true).order('created_at', { ascending: true }),
         supabase
@@ -254,11 +335,12 @@ export const SoilProvider = ({ children }) => {
         supabase.from('user_settings').select('setting_key,setting_value').eq('user_id', user.id)
       ]);
 
-      const firstError = [parametersRes, clonesRes, productivityRes, propertiesRes, analysesRes, cropPlansRes, settingsRes]
+      const firstError = [parametersRes, classificationsRes, clonesRes, productivityRes, propertiesRes, analysesRes, cropPlansRes, settingsRes]
         .find((response) => response.error)?.error;
       if (firstError) throw firstError;
 
       setParameters(parametersRes.data?.length ? mapParameterRows(parametersRes.data) : defaultParameters);
+      setClassifications(classificationsRes.data?.length ? classificationsRes.data.map(mapClassificationRow) : defaultClassifications);
       setClones(clonesRes.data?.length ? clonesRes.data.map(mapCloneRow) : defaultClones);
       setRecommendations(productivityRes.data?.length ? productivityRes.data.map(mapRecommendationRow) : defaultRecommendations);
       setProperties((propertiesRes.data || []).map(mapPropertyRelationalRow));
@@ -277,6 +359,7 @@ export const SoilProvider = ({ children }) => {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
       setParameters(defaultParameters);
+      setClassifications(defaultClassifications);
       setHistory([]);
       setClones(defaultClones);
       setProperties([]);
@@ -288,22 +371,95 @@ export const SoilProvider = ({ children }) => {
     refreshData();
   }, [isAuthenticated, user?.id]);
 
-  const updateParameterRanges = async (key, newRanges) => {
-    const current = parameters[key];
-    const next = { ...current, ranges: newRanges };
-    setParameters(prev => ({ ...prev, [key]: next }));
-    if (!user?.id) return;
-    const { error } = await supabase.from('analysis_parameters').upsert({
+  const ensureUserParameter = async (key, current) => {
+    const { data, error } = await supabase.from('analysis_parameters').upsert({
       owner_id: user.id,
       param_key: key,
-      symbol: next.symbol,
-      name: next.name,
-      parameter_group: next.group,
-      unit: next.unit || '',
-      ranges: normalizeForJson(newRanges),
+      symbol: current.symbol,
+      name: current.name,
+      parameter_group: current.group,
+      unit: current.unit || '',
+      ranges: [],
       updated_at: new Date().toISOString()
-    }, { onConflict: 'owner_id,param_key' });
-    if (error) showDbError('salvar parâmetros de análise', error);
+    }, { onConflict: 'owner_id,param_key' }).select('*').single();
+    if (error) throw error;
+    return data;
+  };
+
+  const updateParameterRanges = async (key, newRanges) => {
+    const current = parameters[key];
+    const normalizedRanges = (newRanges || []).map((range, index) => {
+      const classification = classifications.find((item) => item.id === range.classificationId) || {};
+      return {
+        ...range,
+        id: range.id || `${Date.now()}-${index}`,
+        name: classification.name || range.name,
+        color: classification.color || range.color,
+        sortOrder: index
+      };
+    });
+    const next = { ...current, ranges: normalizedRanges };
+    setParameters(prev => ({ ...prev, [key]: next }));
+    if (!user?.id) return;
+    try {
+      const parameter = await ensureUserParameter(key, next);
+      const { error: deleteError } = await supabase
+        .from('analysis_parameter_ranges')
+        .delete()
+        .eq('owner_id', user.id)
+        .eq('parameter_id', parameter.id);
+      if (deleteError) throw deleteError;
+
+      const rows = normalizedRanges
+        .filter((range) => range.classificationId)
+        .map((range, index) => ({
+          owner_id: user.id,
+          parameter_id: parameter.id,
+          classification_id: range.classificationId,
+          comparison_type: range.comparisonType || 'between',
+          value_from: toNumberOrNull(range.from),
+          value_to: toNumberOrNull(range.to),
+          sort_order: index
+        }));
+      if (rows.length) {
+        const { error: insertError } = await supabase.from('analysis_parameter_ranges').insert(rows);
+        if (insertError) throw insertError;
+      }
+      await refreshData();
+    } catch (error) {
+      showDbError('salvar faixas relacionais dos parâmetros de análise', error);
+    }
+  };
+
+  const addClassification = async (classification) => {
+    const payload = {
+      owner_id: user.id,
+      name: classification.name?.trim(),
+      color: classification.color || '#6b7280',
+      sort_order: classifications.length + 1,
+      active: true
+    };
+    const { data, error } = await supabase.from('nutrient_classifications').insert(payload).select('*').single();
+    if (error) return showDbError('salvar classificação de nutriente', error);
+    setClassifications(prev => [...prev, mapClassificationRow(data)]);
+  };
+
+  const updateClassification = async (id, classification) => {
+    const { data, error } = await supabase.from('nutrient_classifications').update({
+      name: classification.name?.trim(),
+      color: classification.color || '#6b7280',
+      updated_at: new Date().toISOString()
+    }).eq('id', id).eq('owner_id', user.id).select('*').single();
+    if (error) return showDbError('editar classificação. Classificações padrão não podem ser editadas diretamente; crie uma própria.', error);
+    setClassifications(prev => prev.map(item => item.id === id ? mapClassificationRow(data) : item));
+    await refreshData();
+  };
+
+  const removeClassification = async (id) => {
+    const { error } = await supabase.from('nutrient_classifications').delete().eq('id', id).eq('owner_id', user.id);
+    if (error) return showDbError('excluir classificação. Classificações padrão ou já usadas não podem ser excluídas.', error);
+    setClassifications(prev => prev.filter(item => item.id !== id));
+    await refreshData();
   };
 
   const getLevelInfo = (key, value) => getLevelInfoFromParameters(parameters, key, value);
@@ -564,7 +720,7 @@ export const SoilProvider = ({ children }) => {
 
   return (
     <SoilContext.Provider value={{
-      parameters, updateParameterRanges, getLevelInfo,
+      parameters, classifications, addClassification, updateClassification, removeClassification, updateParameterRanges, getLevelInfo,
       history, saveAnalysis, deleteAnalysis, updateAnalysis,
       clones, addClone, updateClone, removeClone,
       properties, addProperty, updateProperty, removeProperty,

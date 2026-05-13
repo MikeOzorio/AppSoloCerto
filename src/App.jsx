@@ -10,6 +10,7 @@ import Clones from './pages/Clones';
 import Fertilization from './pages/Fertilization';
 import Recommendations from './pages/Recommendations';
 import MonthlyDivision from './pages/MonthlyDivision';
+import Classifications from './pages/Classifications';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Subscription from './pages/Subscription';
@@ -75,6 +76,7 @@ function AppRoutes() {
           <Route path="/history" element={<History />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/clones" element={<Clones />} />
+          <Route path="/classifications" element={<Classifications />} />
           <Route path="/fertilization" element={<Fertilization />} />
           <Route path="/recommendations" element={<Recommendations />} />
           <Route path="/reports" element={<Reports />} />
