@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useSoil } from '../context/SoilContext';
-import { Calculator, Sprout, PlusCircle, Trash2, Target, Calendar, MapPin, Save, DollarSign } from 'lucide-react';
+import { Sprout, PlusCircle, Trash2, Target, Calendar, MapPin, Save, FileText, Edit2, X } from 'lucide-react';
 import './Fertilization.css';
 
 const getNutrientName = (symbol) => {
@@ -28,21 +28,105 @@ const MONTHS = [
   { id: 12, name: 'Dez', fullName: 'Dezembro' },
 ];
 
+const getAnalysisLabel = (analysis) => {
+  if (!analysis) return 'Análise não selecionada';
+  const name = analysis.amostra || analysis.title || analysis.fileName || analysis.name || 'Análise de solo';
+  const date = analysis.data || analysis.analysisDate || analysis.date;
+  return date ? `${name} - ${date}` : name;
+};
+
 export default function Fertilization() {
-  const { recommendations, properties, addCropPlan, fertilizationMonths } = useSoil();
+  const {
+    recommendations,
+    properties,
+    cropPlans,
+    addCropPlan,
+    updateCropPlan,
+    removeCropPlan,
+    fertilizationMonths,
+    history
+  } = useSoil();
   
   const [selectedRecId, setSelectedRecId] = useState('none');
   const [cropYear, setCropYear] = useState(new Date().getFullYear().toString());
   const [propertyId, setPropertyId] = useState('');
   const [talhaoId, setTalhaoId] = useState('');
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState('');
+  const [editingPlanId, setEditingPlanId] = useState('');
   
   const [nutrientsData, setNutrientsData] = useState([]);
   
-  const [selectedMonths, setSelectedMonths] = useState({});
+  const [savingPlan, setSavingPlan] = useState(false);
+  const selectedMonths = fertilizationMonths || {};
+  const selectedProperty = properties.find(p => p.id === propertyId);
+  const selectedTalhao = selectedProperty?.talhoes?.find(t => t.id === talhaoId);
+  const availableAnalyses = useMemo(() => {
+    return (history || []).filter((analysis) => {
+      if (!propertyId) return true;
+      const analysisPropertyId = analysis.propertyId || '';
+      const analysisTalhaoId = analysis.plotId || analysis.talhaoId || '';
+      if (talhaoId) {
+        return analysisTalhaoId === talhaoId
+          || (!analysisTalhaoId && analysisPropertyId === propertyId)
+          || !analysisPropertyId;
+      }
+      return analysisPropertyId === propertyId || !analysisPropertyId;
+    });
+  }, [history, propertyId, talhaoId]);
+  const selectedAnalysis = availableAnalyses.find((analysis) => analysis.id === selectedAnalysisId)
+    || (history || []).find((analysis) => analysis.id === selectedAnalysisId);
+  const editingPlan = cropPlans.find((plan) => plan.id === editingPlanId);
+  const sortedCropPlans = useMemo(() => {
+    return [...(cropPlans || [])].sort((a, b) => {
+      const yearDiff = Number(b.cropYear || 0) - Number(a.cropYear || 0);
+      if (yearDiff) return yearDiff;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+  }, [cropPlans]);
 
-  useEffect(() => {
-    setSelectedMonths(fertilizationMonths || {});
-  }, [fertilizationMonths]);
+  const getPropertyName = (id) => properties.find((property) => property.id === id)?.name || 'Sem propriedade';
+  const getTalhaoName = (plan) => {
+    const property = properties.find((item) => item.id === plan.propertyId);
+    const plotId = plan.plotId || plan.talhaoId;
+    if (!plotId) return 'Plano principal';
+    return property?.talhoes?.find((talhao) => talhao.id === plotId)?.name || 'Talhão não encontrado';
+  };
+
+  const resetPlanForm = () => {
+    setSelectedRecId('none');
+    setCropYear(new Date().getFullYear().toString());
+    setPropertyId('');
+    setTalhaoId('');
+    setSelectedAnalysisId('');
+    setNutrientsData([]);
+    setEditingPlanId('');
+  };
+
+  const handleEditPlan = (plan) => {
+    const knownRecommendation = recommendations.some((item) => item.id === plan.recommendationId);
+    setEditingPlanId(plan.id);
+    setCropYear(String(plan.cropYear || new Date().getFullYear()));
+    setPropertyId(plan.propertyId || '');
+    setTalhaoId(plan.plotId || plan.talhaoId || '');
+    setSelectedAnalysisId(plan.analysisId || plan.analysisSnapshot?.id || '');
+    setSelectedRecId(knownRecommendation ? plan.recommendationId : 'manual');
+    setNutrientsData((plan.nutrients || []).map((nutrient, index) => ({
+      id: nutrient.id || `${plan.id}-${index}`,
+      nutrient: nutrient.nutrient || '',
+      need: nutrient.need ?? '',
+      fertilizer: nutrient.fertilizer || '',
+      percentage: nutrient.percentage ?? '',
+      bagSize: nutrient.bagSize || '50',
+      price: nutrient.price ?? ''
+    })));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeletePlan = async (plan) => {
+    if (!window.confirm('Deseja realmente excluir este planejamento de safra?')) return;
+    await removeCropPlan(plan.id);
+    if (editingPlanId === plan.id) resetPlanForm();
+  };
 
   const handleRecChange = (recId) => {
     setSelectedRecId(recId);
@@ -82,45 +166,127 @@ export default function Fertilization() {
     setNutrientsData(prev => prev.filter(n => n.id !== id));
   };
 
-  const handleSavePlan = () => {
+  const handleSavePlan = async () => {
+    if (savingPlan) return;
     if (!cropYear || !selectedRecId || selectedRecId === 'none' || nutrientsData.length === 0) {
       alert("Preencha o Ano de Produção e selecione a Produtividade e os Adubos.");
       return;
     }
+    if (!selectedAnalysisId || !selectedAnalysis) {
+      alert('Selecione a análise de solo que será usada como base do planejamento.');
+      return;
+    }
 
     const plan = {
-      id: Date.now().toString(),
+      id: editingPlanId || Date.now().toString(),
       cropYear,
       propertyId,
       talhaoId,
+      analysisId: selectedAnalysisId,
+      analysisSnapshot: {
+        id: selectedAnalysis.id,
+        name: selectedAnalysis.amostra || selectedAnalysis.title || selectedAnalysis.fileName || 'Análise de solo',
+        date: selectedAnalysis.data || selectedAnalysis.analysisDate || '',
+        propertyId: selectedAnalysis.propertyId || '',
+        talhaoId: selectedAnalysis.plotId || selectedAnalysis.talhaoId || ''
+      },
       recommendationId: selectedRecId,
       nutrients: nutrientsData,
+      applications: editingPlan?.applications || {},
       selectedMonths,
-      createdAt: new Date().toISOString()
+      createdAt: editingPlan?.createdAt || new Date().toISOString()
     };
 
-    addCropPlan(plan);
-    alert('Plano de Safra salvo com sucesso! Você pode consultá-lo na tela de Relatórios.');
+    setSavingPlan(true);
+    try {
+      const saved = editingPlanId
+        ? await updateCropPlan(editingPlanId, plan)
+        : await addCropPlan(plan);
+      if (!saved) return;
+      alert(editingPlanId
+        ? 'Planejamento de safra atualizado com sucesso.'
+        : 'Plano de Safra salvo com sucesso! Você pode consultá-lo na tela de Relatórios.');
+      resetPlanForm();
+    } finally {
+      setSavingPlan(false);
+    }
   };
 
-  const selectedProperty = properties.find(p => p.id === propertyId);
-  const selectedTalhao = selectedProperty?.talhoes?.find(t => t.id === talhaoId);
-
-  // Calculate Grand Totals
-  let grandTotalCost = 0;
   const areaMultiplier = selectedTalhao && selectedTalhao.area ? (parseFloat(selectedTalhao.area) / 10000) : 1; // area in hectares
+  const nutrientMetrics = useMemo(() => nutrientsData.map((nut) => {
+    const need = parseFloat(nut.need);
+    const perc = parseFloat(nut.percentage);
+    const bagSize = parseFloat(nut.bagSize || 50);
+    const priceBag = parseFloat(nut.price || 0);
+    const pricePerKg = bagSize > 0 ? priceBag / bagSize : 0;
+    const totalCalculated = !isNaN(need) && !isNaN(perc) && perc > 0 ? (need / perc) * 100 : 0;
+    const costPerHa = totalCalculated * pricePerKg;
+
+    return {
+      ...nut,
+      bagSize,
+      priceBag,
+      totalCalculated,
+      bags50: totalCalculated / 50,
+      bags25: totalCalculated / 25,
+      costPerHa,
+      totalCost: costPerHa * areaMultiplier
+    };
+  }), [areaMultiplier, nutrientsData]);
+  const grandTotalCost = nutrientMetrics.reduce((total, nut) => total + nut.totalCost, 0);
 
   return (
     <div className="fertilization-page container animate-fade-in">
       <div className="fert-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2>Planejamento de Safra</h2>
-          <p className="text-muted">Crie o seu plano de adubação, insira os custos e salve para o ano de produção.</p>
+          <p className="text-muted">Crie, revise e edite seus planos de adubação. O relatório apenas reflete o que estiver salvo aqui.</p>
         </div>
-        <button className="btn btn-primary" onClick={handleSavePlan}>
-          <Save size={18} /> Salvar Plano de Produção
+        <button className="btn btn-primary" onClick={handleSavePlan} disabled={savingPlan}>
+          <Save size={18} /> {savingPlan ? 'Salvando...' : editingPlanId ? 'Salvar edição' : 'Salvar Plano de Produção'}
         </button>
       </div>
+
+      <div className="saved-plans-card card">
+        <div className="fert-card-header">
+          <h3 className="fert-card-title"><FileText size={20} /> Planejamentos salvos</h3>
+          {editingPlanId && (
+            <button type="button" className="btn-secondary btn-sm" onClick={resetPlanForm}>
+              <X size={14} /> Cancelar edição
+            </button>
+          )}
+        </div>
+
+        {sortedCropPlans.length === 0 ? (
+          <p className="text-muted">Nenhum planejamento salvo ainda.</p>
+        ) : (
+          <div className="saved-plans-list">
+            {sortedCropPlans.map((plan) => (
+              <div key={plan.id} className={`saved-plan-row ${editingPlanId === plan.id ? 'active' : ''}`}>
+                <div className="saved-plan-info">
+                  <strong>Safra {plan.cropYear || '-'}</strong>
+                  <span>{getPropertyName(plan.propertyId)} | {getTalhaoName(plan)} | {getAnalysisLabel(plan.analysisSnapshot)}</span>
+                </div>
+                <div className="saved-plan-actions">
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => handleEditPlan(plan)}>
+                    <Edit2 size={14} /> Editar
+                  </button>
+                  <button type="button" className="btn-secondary btn-sm danger" onClick={() => handleDeletePlan(plan)}>
+                    <Trash2 size={14} /> Excluir
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {editingPlanId && (
+        <div className="analysis-basis editing">
+          <Edit2 size={16} />
+          <span>Editando <strong>Safra {editingPlan?.cropYear}</strong>. Ao salvar, o Relatório de Safra será atualizado automaticamente.</span>
+        </div>
+      )}
 
       <div className="fert-grid">
         <div className="fert-card card" style={{ gridColumn: '1 / -1' }}>
@@ -133,7 +299,7 @@ export default function Fertilization() {
             
             <div className="input-group">
               <label>Propriedade (Opcional)</label>
-              <select className="input" value={propertyId} onChange={e => { setPropertyId(e.target.value); setTalhaoId(''); }}>
+              <select className="input" value={propertyId} onChange={e => { setPropertyId(e.target.value); setTalhaoId(''); setSelectedAnalysisId(''); }}>
                 <option value="">-- Selecione --</option>
                 {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -141,12 +307,35 @@ export default function Fertilization() {
 
             <div className="input-group">
               <label>Talhão (Opcional)</label>
-              <select className="input" value={talhaoId} onChange={e => setTalhaoId(e.target.value)} disabled={!propertyId}>
+              <select className="input" value={talhaoId} onChange={e => { setTalhaoId(e.target.value); setSelectedAnalysisId(''); }} disabled={!propertyId}>
                 <option value="">-- Planejamento Global --</option>
+                {talhaoId && !selectedTalhao && <option value={talhaoId}>Talhão não encontrado</option>}
                 {selectedProperty?.talhoes?.map(t => <option key={t.id} value={t.id}>{t.name} ({Number(t.area).toLocaleString('pt-BR')} m²)</option>)}
               </select>
             </div>
+
+            <div className="input-group">
+              <label>Análise base</label>
+              <select className="input" value={selectedAnalysisId} onChange={e => setSelectedAnalysisId(e.target.value)}>
+                <option value="">-- Selecione a análise --</option>
+                {availableAnalyses.map((analysis) => (
+                  <option key={analysis.id} value={analysis.id}>{getAnalysisLabel(analysis)}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          {selectedAnalysis ? (
+            <div className="analysis-basis">
+              <FileText size={16} />
+              <span>Planejamento baseado em <strong>{getAnalysisLabel(selectedAnalysis)}</strong></span>
+            </div>
+          ) : (
+            <div className="analysis-basis warning">
+              <FileText size={16} />
+              <span>Selecione uma análise salva para identificar a base técnica deste planejamento.</span>
+            </div>
+          )}
         </div>
 
         <div className="fert-card card" style={{ gridColumn: '1 / -1' }}>
@@ -168,24 +357,7 @@ export default function Fertilization() {
               <h3 className="fert-card-title"><Sprout size={20} /> Adubos, Nutrientes e Custos</h3>
               
               <div className="multi-fert-list">
-                {nutrientsData.map((nut, idx) => {
-                  const need = parseFloat(nut.need);
-                  const perc = parseFloat(nut.percentage);
-                  const bagSize = parseFloat(nut.bagSize || 50);
-                  const priceBag = parseFloat(nut.price || 0);
-                  const pricePerKg = bagSize > 0 ? priceBag / bagSize : 0;
-                  
-                  let totalCalculated = 0; // kg/ha
-                  if (!isNaN(need) && !isNaN(perc) && perc > 0) {
-                    totalCalculated = (need / perc) * 100;
-                  }
-
-                  const bags50 = totalCalculated / 50;
-                  const bags25 = totalCalculated / 25;
-                  const costPerHa = totalCalculated * pricePerKg;
-                  const totalCost = costPerHa * areaMultiplier;
-                  grandTotalCost += totalCost;
-
+                {nutrientMetrics.map((nut) => {
                   return (
                     <div key={nut.id} className="multi-fert-row">
                       <div className="multi-fert-header">
@@ -218,22 +390,22 @@ export default function Fertilization() {
                           <input type="number" className="input" placeholder="50" value={nut.bagSize} onChange={e => updateNutrientData(nut.id, 'bagSize', e.target.value)} />
                         </div>
                         <div className="input-group">
-                          <label>Preço (R$/{bagSize > 0 ? bagSize : '?'}kg)</label>
+                          <label>Preço (R$/{nut.bagSize > 0 ? nut.bagSize : '?'}kg)</label>
                           <input type="number" step="0.01" className="input" placeholder="Ex: 180.00" value={nut.price} onChange={e => updateNutrientData(nut.id, 'price', e.target.value)} />
                         </div>
                       </div>
                       <div className="multi-fert-summary" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <span>
-                          Volume Anual: <strong>{totalCalculated > 0 ? `${totalCalculated.toFixed(2)} kg/ha` : '-'}</strong>
-                          {totalCalculated > 0 && (
+                          Volume Anual: <strong>{nut.totalCalculated > 0 ? `${nut.totalCalculated.toFixed(2)} kg/ha` : '-'}</strong>
+                          {nut.totalCalculated > 0 && (
                             <span style={{ marginLeft: '0.75rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                              ≈ {bags50.toFixed(1)} sacos 50kg &nbsp;|&nbsp; {bags25.toFixed(1)} sacos 25kg
+                              ≈ {nut.bags50.toFixed(1)} sacos 50kg &nbsp;|&nbsp; {nut.bags25.toFixed(1)} sacos 25kg
                             </span>
                           )}
                         </span>
-                        {priceBag > 0 && (
+                        {nut.priceBag > 0 && (
                           <span style={{ color: 'var(--color-primary-dark)' }}>
-                            Custo/ha: <strong>R$ {costPerHa.toFixed(2)}</strong>
+                            Custo/ha: <strong>R$ {nut.costPerHa.toFixed(2)}</strong>
                           </span>
                         )}
                       </div>
@@ -242,7 +414,7 @@ export default function Fertilization() {
                 })}
               </div>
 
-              {!selectedRecId && (
+              {selectedRecId === 'manual' && (
                 <button className="btn-text btn-add-nut" onClick={addManualNutrient} style={{ marginTop: '1rem' }}>
                   <PlusCircle size={16} /> Adicionar outro nutriente
                 </button>
@@ -253,7 +425,11 @@ export default function Fertilization() {
                   <div>
                     <h3 style={{ margin: 0, color: 'white' }}>Custo Total Estimado de Adubação</h3>
                     <p style={{ margin: 0, opacity: 0.8, fontSize: '0.9rem' }}>
-                      {talhaoId ? `Para o talhão ${selectedTalhao.name} (${areaMultiplier.toFixed(2)} ha)` : 'Custo por hectare (Planejamento Global)'}
+                      {talhaoId
+                        ? selectedTalhao
+                          ? `Para o talhão ${selectedTalhao.name} (${areaMultiplier.toFixed(2)} ha)`
+                          : 'Para talhão não encontrado (base por hectare)'
+                        : 'Custo por hectare (Planejamento Global)'}
                     </p>
                   </div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>

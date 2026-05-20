@@ -1,4 +1,4 @@
-# Configuração Supabase - Solo Certo
+# Configuração Supabase - SoloCerto
 
 ## 1. Criar projeto
 Crie um projeto no Supabase e copie:

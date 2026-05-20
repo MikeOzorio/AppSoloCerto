@@ -14,9 +14,13 @@ export default function Analysis() {
   const [metadata, setMetadata] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editValues, setEditValues] = useState({});
+  const [editUnits, setEditUnits] = useState({});
+  const [originalValues, setOriginalValues] = useState({});
+  const [originalUnits, setOriginalUnits] = useState({});
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [selectedProps, setSelectedProps] = useState([]);
   const [showPropError, setShowPropError] = useState(false);
+  const [pdfUnits, setPdfUnits] = useState({});
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -42,6 +46,11 @@ export default function Analysis() {
       
       setEditValues(parsedData.results);
       setResults(parsedData.results);
+      const extractedUnits = parsedData.units || {};
+      setPdfUnits(extractedUnits);
+      setEditUnits(extractedUnits);
+      setOriginalValues({ ...parsedData.results });
+      setOriginalUnits({ ...extractedUnits });
       setMetadata({
         fileName: file.name,
         ...parsedData.metadata
@@ -67,7 +76,24 @@ export default function Analysis() {
       ...prev,
       [key]: editValues[key]
     }));
+    setPdfUnits(prev => ({
+      ...prev,
+      [key]: editUnits[key] || prev[key]
+    }));
     setEditing(null);
+  };
+
+  const wasEdited = (key) => {
+    if (!originalValues[key] && !results?.[key]) return false;
+    return String(originalValues[key]) !== String(results?.[key]) ||
+           String(originalUnits[key] || '') !== String(pdfUnits[key] || '');
+  };
+
+  const getOriginalTooltip = (key) => {
+    if (!wasEdited(key)) return '';
+    const origVal = originalValues[key] ?? 'N/D';
+    const origUnit = originalUnits[key] || '';
+    return `Valor original do PDF: ${origVal} ${origUnit}`.trim();
   };
 
   const handleMetadataChange = (field, value) => {
@@ -106,13 +132,26 @@ export default function Analysis() {
       return;
     }
     const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    // Montar histórico de edições
+    const edits = {};
+    for (const key of Object.keys(results || {})) {
+      if (wasEdited(key)) {
+        edits[key] = {
+          originalValue: originalValues[key],
+          originalUnit: originalUnits[key] || '',
+          editedValue: results[key],
+          editedUnit: pdfUnits[key] || ''
+        };
+      }
+    }
     const metaToSave = {
       ...metadata,
       data: metadata.data || dataAtual,
-      linkedProperties: selectedProps
+      linkedProperties: selectedProps,
+      editHistory: Object.keys(edits).length ? edits : undefined
     };
     
-    saveAnalysis(metaToSave, results);
+    saveAnalysis(metaToSave, results, pdfUnits);
     setSavedSuccess(true);
     setTimeout(() => {
       navigate('/history');
@@ -242,8 +281,11 @@ export default function Analysis() {
                   const levelInfo = getLevelInfo(key, value);
                   const isEditing = editing === key;
 
+                  const edited = wasEdited(key);
+                  const tooltip = getOriginalTooltip(key);
+
                   return (
-                    <tr key={key}>
+                    <tr key={key} className={edited ? 'row-edited' : ''}>
                       <td><span className="param-symbol">{param.symbol}</span></td>
                       <td><strong>{param.name}</strong></td>
                       <td>
@@ -257,12 +299,27 @@ export default function Analysis() {
                             autoFocus
                           />
                         ) : (
-                          <span className={!value ? 'text-muted' : ''}>
+                          <span className={!value ? 'text-muted' : ''} title={tooltip} style={edited ? { cursor: 'help', borderBottom: '1px dashed #b8860b' } : {}}>
                             {value ? value : 'N/D'}
+                            {edited && <span style={{ marginLeft: '0.35rem', fontSize: '0.7rem', color: '#b8860b' }}>✎</span>}
                           </span>
                         )}
                       </td>
-                      <td className="text-muted">{param.unit}</td>
+                      <td>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            className="input small-input"
+                            style={{ width: '100px' }}
+                            value={editUnits[key] || ''}
+                            onChange={(e) => setEditUnits(prev => ({...prev, [key]: e.target.value}))}
+                          />
+                        ) : (
+                          <span className="text-muted" title={edited ? `Original: ${originalUnits[key] || param.unit}` : ''}>
+                            {pdfUnits[key] || param.unit}
+                          </span>
+                        )}
+                      </td>
                       <td>
                         {value && (
                           <span 

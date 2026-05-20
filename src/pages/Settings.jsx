@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSoil } from '../context/SoilContext';
 import { Save, AlertCircle, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import './Settings.css';
@@ -159,6 +159,14 @@ export default function Settings() {
             </div>
 
             <div className="ranges-list">
+              <div className="ranges-header">
+                <span />
+                <span>Classificação</span>
+                <span>Regra</span>
+                <span>Valor inicial</span>
+                <span>Valor final</span>
+                <span>Ações</span>
+              </div>
               {param.ranges.map((range, index) => (
                 <div key={range.id || index} className="range-row relational-range-row">
                   <span className="classification-dot-small" style={{ backgroundColor: range.color || '#6b7280' }} />

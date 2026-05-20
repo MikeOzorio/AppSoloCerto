@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Leaf, FileText, Settings, Sprout, Tractor, ChevronRight, ChevronLeft } from 'lucide-react';
+import { FileText, Settings, Sprout, Tractor, ChevronRight, ChevronLeft, Clock, Calendar, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import './Home.css';
 
 const ADS = [
@@ -21,7 +23,11 @@ const ADS = [
 ];
 
 export default function Home() {
+  const { user, isAuthenticated } = useAuth();
+  const userId = user?.id;
   const [currentAd, setCurrentAd] = useState(0);
+  const [urgentTasks, setUrgentTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,6 +35,50 @@ export default function Home() {
     }, 6000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchUrgentTasks = async () => {
+      if (!isAuthenticated || !userId) return;
+
+      await Promise.resolve();
+      if (!active) return;
+
+      setLoadingTasks(true);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      
+      // Fetch pending tasks due today or earlier
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('completed', false)
+        .lte('due_date', today.toISOString().split('T')[0])
+        .order('due_date', { ascending: true })
+        .limit(3);
+        
+      if (!active) return;
+      if (!error && data) {
+        setUrgentTasks(data);
+      }
+      setLoadingTasks(false);
+    };
+
+    void fetchUrgentTasks();
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, userId]);
+
+  const isLate = (dateString) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const taskDate = new Date(dateString + 'T00:00:00');
+    return taskDate < today;
+  };
 
   const nextAd = () => setCurrentAd((prev) => (prev + 1) % ADS.length);
   const prevAd = () => setCurrentAd((prev) => (prev === 0 ? ADS.length - 1 : prev - 1));
@@ -39,7 +89,7 @@ export default function Home() {
         
         {/* Left Side: Main Hero */}
         <div className="hero-content glass-panel">
-          <h1 className="hero-title">CoffeTI - Beta<br/>Gestão Inteligente do Solo para Café Conilon</h1>
+          <h1 className="hero-title">SoloCerto<br/>Gestão inteligente do solo para Café Conilon</h1>
           <p className="hero-subtitle">
             Otimize a adubação e a produtividade da sua lavoura de Conilon. 
             Faça a leitura automática dos laudos de análise de solo em segundos e acompanhe a evolução da fertilidade.
@@ -52,6 +102,24 @@ export default function Home() {
               <Settings size={20} /> Parametrizar Limites
             </Link>
           </div>
+
+          {/* Urgent Tasks Widget */}
+          {!loadingTasks && urgentTasks.length > 0 && (
+            <div className="urgent-tasks-widget">
+              <h4><Clock size={16}/> Atenção: Tarefas Pendentes</h4>
+              <div className="urgent-tasks-list">
+                {urgentTasks.map(task => (
+                  <Link to="/tasks" key={task.id} className={`urgent-task-item ${isLate(task.due_date) ? 'late' : ''}`}>
+                    <div className="task-title-row">
+                      <strong>{task.title}</strong>
+                      {isLate(task.due_date) && <span className="badge-late"><AlertCircle size={12}/> Atrasada</span>}
+                    </div>
+                    <span className="task-date"><Calendar size={12}/> {new Date(task.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Marketing Carousel */}

@@ -323,6 +323,7 @@ create table if not exists public.properties (
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   area numeric,
+  plant_count numeric,
   talhoes jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -479,6 +480,50 @@ create index if not exists idx_plot_clones_user on public.plot_clones(user_id);
 create index if not exists idx_plot_clones_plot on public.plot_clones(plot_id);
 create index if not exists idx_plot_clones_clone on public.plot_clones(clone_id);
 
+alter table public.properties
+  drop constraint if exists properties_plant_count_positive;
+alter table public.properties
+  add constraint properties_plant_count_positive
+  check (plant_count is null or plant_count > 0);
+
+create or replace function public.validate_plot_clones_plant_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_property_id uuid := new.property_id;
+  v_property_limit numeric;
+  v_plot_total numeric;
+begin
+  select plant_count
+    into v_property_limit
+    from public.properties
+   where id = v_property_id;
+
+  if v_property_limit is null then
+    return coalesce(new, old);
+  end if;
+
+  select coalesce(sum(quantity), 0)
+    into v_plot_total
+    from public.plot_clones
+   where property_id = v_property_id;
+
+  if v_plot_total > v_property_limit then
+    raise exception 'A soma de plantas dos talhões não pode passar da quantidade total da propriedade.';
+  end if;
+
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_plot_clones_plant_limit on public.plot_clones;
+create trigger trg_plot_clones_plant_limit
+after insert or update on public.plot_clones
+for each row execute function public.validate_plot_clones_plant_limit();
+
 alter table public.soil_analyses
   add column if not exists plot_id uuid references public.property_plots(id) on delete set null;
 
@@ -500,10 +545,13 @@ create index if not exists idx_soil_analysis_results_analysis on public.soil_ana
 
 alter table public.crop_plans
   add column if not exists plot_id uuid references public.property_plots(id) on delete set null,
-  add column if not exists productivity_table_id uuid references public.productivity_tables(id) on delete set null;
+  add column if not exists productivity_table_id uuid references public.productivity_tables(id) on delete set null,
+  add column if not exists analysis_id uuid references public.soil_analyses(id) on delete set null,
+  add column if not exists analysis_snapshot jsonb not null default '{}'::jsonb;
 
 create index if not exists idx_crop_plans_plot on public.crop_plans(plot_id);
 create index if not exists idx_crop_plans_productivity on public.crop_plans(productivity_table_id);
+create index if not exists idx_crop_plans_analysis on public.crop_plans(analysis_id);
 
 create table if not exists public.crop_plan_nutrients (
   id uuid primary key default gen_random_uuid(),

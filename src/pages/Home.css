@@ -253,3 +253,79 @@
   color: var(--color-text-muted);
   line-height: 1.6;
 }
+
+/* Urgent Tasks Widget */
+.urgent-tasks-widget {
+  margin-top: 1.5rem;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+}
+
+.urgent-tasks-widget h4 {
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.urgent-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.urgent-task-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-primary);
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+
+.urgent-task-item:hover {
+  transform: translateX(4px);
+  background: var(--color-background-alt);
+}
+
+.urgent-task-item.late {
+  border-left-color: var(--color-danger);
+}
+
+.task-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.task-title-row strong {
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.task-date {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.badge-late {
+  font-size: 0.7rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+}

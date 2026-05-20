@@ -2,14 +2,40 @@
 .classifications-header { margin-bottom: 2rem; }
 .classification-form-card { margin-bottom: 2rem; }
 .classification-form-card h3 { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; color: var(--color-primary); }
-.classification-form-grid { display: grid; grid-template-columns: 1fr 220px auto; gap: 1rem; align-items: end; }
-.add-classification-btn { height: 42px; }
-.classification-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.classification-form-grid { display: grid; grid-template-columns: minmax(220px, .9fr) minmax(360px, 1.6fr) auto; gap: 1rem; align-items: end; }
+.add-classification-btn { min-height: 42px; }
+.classification-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
 .classification-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .classification-info { display: flex; align-items: center; gap: .75rem; }
 .classification-dot { width: 18px; height: 18px; border-radius: 999px; border: 1px solid var(--color-border); }
+.color-select { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: start; }
+.color-options { display: flex; flex-wrap: wrap; gap: .4rem; }
+.color-option,
+.custom-color-field {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: .8rem;
+  font-weight: 600;
+}
+.color-option.active,
+.custom-color-field.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(139, 90, 43, .14);
+}
+.color-preview { width: 16px; height: 16px; border-radius: 999px; border: 1px solid var(--color-border); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); flex: 0 0 auto; }
+.custom-color-field { position: relative; cursor: pointer; white-space: nowrap; }
+.custom-color-field input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .default-badge { margin-left: .5rem; font-size: .75rem; color: var(--color-text-muted); background: rgba(0,0,0,.06); padding: .15rem .4rem; border-radius: 999px; }
 .classification-actions { display: flex; gap: .5rem; }
-.classification-edit-grid { width: 100%; display: grid; grid-template-columns: 1fr 160px auto auto; gap: .5rem; align-items: center; }
+.classification-actions .btn-icon:disabled { opacity: .35; cursor: not-allowed; }
+.classification-edit-grid { width: 100%; display: flex; flex-direction: column; gap: 1rem; align-items: stretch; }
+.classification-edit-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
 .empty-state { grid-column: 1 / -1; text-align: center; padding: 2rem; display: flex; justify-content: center; gap: .5rem; }
-@media (max-width: 760px) { .classification-form-grid, .classification-edit-grid { grid-template-columns: 1fr; } }
+@media (max-width: 920px) { .classification-form-grid { grid-template-columns: 1fr; } .color-select { grid-template-columns: 1fr; } .classification-edit-actions { justify-content: flex-start; } }

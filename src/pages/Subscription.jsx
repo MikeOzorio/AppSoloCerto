@@ -1,54 +1,39 @@
-import React, { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { CreditCard, Check, Star, Zap, Crown, Clock, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import {
+  ACCESS_MODULES,
+  BILLING_CYCLES,
+  SUBSCRIPTION_TIERS,
+  mergeSubscriptionPlanConfig,
+} from '../constants/subscriptionPlanConfig';
+import { AlertCircle, Check, Clock, CreditCard, Crown, Star, Zap } from 'lucide-react';
 import './Subscription.css';
 
-const PLANS = [
-  {
-    id: 'mensal',
-    name: 'Mensal',
-    price: 49.90,
-    period: '/mês',
-    icon: <Zap size={28} />,
-    color: '#3b82f6',
-    features: ['Análise de Solo ilimitada', 'Histórico completo', 'Planejamento de Safra', 'Relatórios Financeiros'],
-    highlight: false
-  },
-  {
-    id: 'trimestral',
-    name: 'Trimestral',
-    price: 129.90,
-    period: '/3 meses',
-    savings: 'Economia de R$ 19,80',
-    icon: <Star size={28} />,
-    color: '#8b5a2b',
-    features: ['Tudo do Mensal', 'Suporte prioritário', 'Exportação de PDF', 'Desconto de 13%'],
-    highlight: true
-  },
-  {
-    id: 'semestral',
-    name: 'Semestral',
-    price: 239.90,
-    period: '/6 meses',
-    savings: 'Economia de R$ 59,50',
-    icon: <Crown size={28} />,
-    color: '#2e8b57',
-    features: ['Tudo do Trimestral', 'Consultoria técnica mensal', 'Multi-propriedades', 'Desconto de 20%'],
-    highlight: false
-  },
-  {
-    id: 'anual',
-    name: 'Anual',
-    price: 399.90,
-    period: '/ano',
-    savings: 'Economia de R$ 198,90',
-    icon: <Crown size={28} />,
-    color: '#7c3aed',
-    features: ['Tudo do Semestral', 'Acesso a novas funcionalidades', 'Backup na nuvem', 'Desconto de 33%'],
-    highlight: false
-  }
-];
+const SETTINGS_ID = 'default';
+
+const PERIOD_LABELS = {
+  monthly: '/mês',
+  quarterly: '/trimestre',
+  semiannual: '/semestre',
+  annual: '/ano',
+};
+
+const LEGACY_PLAN_NAMES = {
+  mensal: 'Mensal',
+  trimestral: 'Trimestral',
+  semestral: 'Semestral',
+  anual: 'Anual',
+  trial_15: 'Teste grátis',
+  trial_admin: 'Teste liberado pelo administrador',
+};
+
+const TIER_ICONS = {
+  basic: <Zap size={28} />,
+  advanced: <Star size={28} />,
+  premium: <Crown size={28} />,
+};
 
 function getDaysLeft(dateValue) {
   if (!dateValue) return 0;
@@ -58,18 +43,100 @@ function getDaysLeft(dateValue) {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
+function formatCurrency(value) {
+  return Number(value || 0).toFixed(2).replace('.', ',');
+}
+
+function getPlanName(planCode, config) {
+  if (!planCode) return '';
+  if (LEGACY_PLAN_NAMES[planCode]) return LEGACY_PLAN_NAMES[planCode];
+
+  const [tierId, cycleId] = planCode.split('_');
+  const tierName = config.tiers?.[tierId]?.name;
+  const cycleName = BILLING_CYCLES.find((cycle) => cycle.id === cycleId)?.name;
+
+  return [tierName, cycleName].filter(Boolean).join(' ');
+}
+
 export default function Subscription({ onboarding = false }) {
   const { user, startTrial, choosePlan, logout, refreshCurrentUser } = useAuth();
   const navigate = useNavigate();
+  const [planConfig, setPlanConfig] = useState(() => mergeSubscriptionPlanConfig());
+  const [selectedCycleId, setSelectedCycleId] = useState('monthly');
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPlanConfig = async () => {
+      if (!supabase) return;
+
+      const { data, error: loadError } = await supabase
+        .from('subscription_plan_settings')
+        .select('plan_config')
+        .eq('id', SETTINGS_ID)
+        .maybeSingle();
+
+      if (cancelled || loadError) return;
+
+      const mergedConfig = mergeSubscriptionPlanConfig(data?.plan_config || {});
+      setPlanConfig(mergedConfig);
+
+      const enabledCycle = BILLING_CYCLES.find((cycle) => mergedConfig.billingCycles?.[cycle.id]?.enabled);
+      if (enabledCycle) {
+        setSelectedCycleId((currentCycleId) => (
+          mergedConfig.billingCycles?.[currentCycleId]?.enabled ? currentCycleId : enabledCycle.id
+        ));
+      }
+    };
+
+    loadPlanConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const subscription = user?.subscription || null;
   const trialDaysLeft = useMemo(() => getDaysLeft(subscription?.trial_ends_at || subscription?.ends_at), [subscription]);
   const isTrial = subscription?.status === 'trialing' && trialDaysLeft > 0;
-  const currentPlan = PLANS.find((plan) => plan.id === subscription?.plan_code);
+  const currentPlanName = useMemo(() => getPlanName(subscription?.plan_code, planConfig), [subscription?.plan_code, planConfig]);
+
+  const enabledCycles = useMemo(() => (
+    BILLING_CYCLES.filter((cycle) => planConfig.billingCycles?.[cycle.id]?.enabled)
+  ), [planConfig]);
+
+  const selectedCycle = enabledCycles.find((cycle) => cycle.id === selectedCycleId) || enabledCycles[0] || BILLING_CYCLES[0];
+
+  const plans = useMemo(() => (
+    SUBSCRIPTION_TIERS
+      .filter((tier) => planConfig.tiers?.[tier.id]?.enabled)
+      .map((tier) => {
+        const tierConfig = planConfig.tiers[tier.id];
+        const limits = planConfig.limits?.[tier.id] || {};
+        const enabledModules = ACCESS_MODULES.filter((module) => planConfig.access?.[tier.id]?.[module.id]);
+        const visibleFeatures = enabledModules.slice(0, 6).map((module) => module.label);
+
+        return {
+          id: `${tier.id}_${selectedCycle.id}`,
+          tierId: tier.id,
+          name: tierConfig.name || tier.name,
+          description: tierConfig.description,
+          price: Number(planConfig.prices?.[tier.id]?.[selectedCycle.id] || 0),
+          period: PERIOD_LABELS[selectedCycle.id] || `/${selectedCycle.name.toLowerCase()}`,
+          icon: TIER_ICONS[tier.id] || <CreditCard size={28} />,
+          color: tier.accent,
+          features: visibleFeatures,
+          modulesCount: enabledModules.length,
+          highlight: Boolean(tierConfig.highlighted),
+          support: limits.support,
+          limits,
+        };
+      })
+  ), [planConfig, selectedCycle]);
 
   const handleStartTrial = async () => {
     setSaving(true);
@@ -95,7 +162,11 @@ export default function Subscription({ onboarding = false }) {
     setMessage('');
     setSelectedPlan(plan.id);
 
-    const result = await choosePlan(plan);
+    const result = await choosePlan({
+      ...plan,
+      name: `${plan.name} ${selectedCycle.name}`,
+      billingCycle: selectedCycle.id,
+    });
     setSaving(false);
 
     if (!result?.success) {
@@ -103,7 +174,7 @@ export default function Subscription({ onboarding = false }) {
       return;
     }
 
-    setMessage(`Plano ${plan.name} selecionado. Em breve conectaremos o pagamento automático; por enquanto, o status fica como pagamento pendente.`);
+    setMessage(`Plano ${plan.name} ${selectedCycle.name} selecionado. Em breve conectaremos o pagamento automático; por enquanto, o status fica como pagamento pendente.`);
     await refreshCurrentUser?.();
   };
 
@@ -152,8 +223,8 @@ export default function Subscription({ onboarding = false }) {
             <p className="text-muted">
               {isTrial
                 ? `Teste grátis — ${trialDaysLeft} dia(s) restante(s)`
-                : currentPlan
-                  ? `${currentPlan.name} — ${subscription?.status === 'active' ? 'Ativo' : 'Pagamento pendente'}`
+                : currentPlanName
+                  ? `${currentPlanName} — ${subscription?.status === 'active' ? 'Ativo' : 'Pagamento pendente'}`
                   : 'Nenhum plano ativo. Selecione um plano abaixo.'}
             </p>
           </div>
@@ -172,23 +243,44 @@ export default function Subscription({ onboarding = false }) {
         </div>
       )}
 
+      <div className="billing-cycle-selector" role="tablist" aria-label="Periodicidade da assinatura">
+        {enabledCycles.map((cycle) => (
+          <button
+            key={cycle.id}
+            type="button"
+            className={`billing-cycle-btn ${selectedCycle.id === cycle.id ? 'active' : ''}`}
+            onClick={() => setSelectedCycleId(cycle.id)}
+          >
+            <span>{cycle.name}</span>
+            {Number(planConfig.billingCycles?.[cycle.id]?.discountPercent || 0) > 0 && (
+              <small>{planConfig.billingCycles[cycle.id].discountPercent}% off</small>
+            )}
+          </button>
+        ))}
+      </div>
+
       <div className="plans-grid">
-        {PLANS.map(plan => (
+        {plans.map((plan) => (
           <div key={plan.id} className={`plan-card card ${plan.highlight ? 'plan-highlighted' : ''}`}>
             {plan.highlight && <div className="plan-badge">Mais Popular</div>}
             <div className="plan-icon" style={{ color: plan.color, backgroundColor: `${plan.color}15` }}>
               {plan.icon}
             </div>
             <h3 className="plan-name">{plan.name}</h3>
+            <p className="plan-description">{plan.description}</p>
             <div className="plan-price">
               <span className="price-currency">R$</span>
-              <span className="price-value">{plan.price.toFixed(2).replace('.', ',')}</span>
+              <span className="price-value">{formatCurrency(plan.price)}</span>
               <span className="price-period">{plan.period}</span>
             </div>
-            {plan.savings && <span className="plan-savings">{plan.savings}</span>}
+            <div className="plan-limits">
+              <span>{plan.limits.properties} propriedade(s)</span>
+              <span>{plan.limits.users} usuário(s)</span>
+              <span>{plan.modulesCount} módulos</span>
+            </div>
             <ul className="plan-features">
-              {plan.features.map((f, i) => (
-                <li key={i}><Check size={16} style={{ color: plan.color }} /> {f}</li>
+              {plan.features.map((feature) => (
+                <li key={feature}><Check size={16} style={{ color: plan.color }} /> {feature}</li>
               ))}
             </ul>
             <button

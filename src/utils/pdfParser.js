@@ -15,20 +15,16 @@ export const extractTextFromPDF = async (file) => {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       
-      // Spatial grouping: Group by Y coordinate (transform[5])
       const rows = {};
       textContent.items.forEach(item => {
-        // Round to nearest 2 pixels to group slightly misaligned items on the same line
         const y = Math.round(item.transform[5] / 2) * 2;
         if (!rows[y]) rows[y] = [];
         rows[y].push(item);
       });
       
-      // Sort Y descending (top to bottom reading)
       const sortedY = Object.keys(rows).sort((a, b) => b - a);
       
       for (const y of sortedY) {
-        // Sort X ascending (left to right)
         const rowItems = rows[y].sort((a, b) => a.transform[4] - b.transform[4]);
         const lineText = rowItems.map(it => it.str).join('   ');
         fullText += lineText + '\n';
@@ -42,8 +38,72 @@ export const extractTextFromPDF = async (file) => {
   }
 };
 
-// Heuristics to find soil parameters in text
-export const parseSoilData = (text) => {
+/**
+ * Remove seções de referência/interpretação do texto para evitar falsos positivos.
+ */
+const stripReferenceSection = (text) => {
+  const markers = [
+    /VALORES\s+GERAIS\s+DE\s+REFER/i,
+    /Refer[êe]ncias?\s+Metodol[oó]gicas/i,
+    /TABELA\s+DE\s+INTERPRETA/i,
+    /N[IÍ]VEIS\s+DE\s+REFER/i,
+    /OBSERVA[ÇC][ÕO]ES\s+IMPORTANTES/i,
+    /Extra[çc][õo]es\s+utilizadas/i,
+  ];
+  let cutIndex = text.length;
+  for (const marker of markers) {
+    const match = text.match(marker);
+    if (match && match.index < cutIndex) {
+      cutIndex = match.index;
+    }
+  }
+  return text.substring(0, cutIndex);
+};
+
+// Unidades conhecidas em laudos de solo
+const KNOWN_UNITS = [
+  'mg/dm3', 'mg/dm³',
+  'cmolc/dm3', 'cmolc/dm³', 'cmol c/dm3', 'cmol c/dm³',
+  'mmolc/dm3', 'mmolc/dm³', 'mmol c/dm3', 'mmol c/dm³',
+  'dag/kg', 'dag/dm3', 'dag/dm³',
+  'g/kg', 'g/dm3', 'g/dm³',
+  '%',
+];
+
+/**
+ * Extrai a unidade de uma linha de texto de laudo.
+ */
+const extractUnitFromLine = (line) => {
+  const lower = line.toLowerCase();
+  for (const unit of KNOWN_UNITS) {
+    if (lower.includes(unit.toLowerCase())) return unit;
+  }
+  return '';
+};
+
+/**
+ * Dado um array de linhas, procura a PRIMEIRA linha que contenha um dos
+ * padrões (regex) e retorna o ÚLTIMO número + a unidade encontrada.
+ * Isso é crucial porque a unidade frequentemente contém números (ex: mg/dm3).
+ */
+const findLastNumberInLine = (lines, patterns) => {
+  for (const pattern of patterns) {
+    for (const line of lines) {
+      if (pattern.test(line)) {
+        const allNumbers = [...line.matchAll(/(\d+[,.]?\d*)/g)];
+        if (allNumbers.length > 0) {
+          const lastMatch = allNumbers[allNumbers.length - 1][1];
+          const num = parseFloat(lastMatch.replace(',', '.'));
+          const unit = extractUnitFromLine(line);
+          return { value: isNaN(num) ? null : String(num), unit };
+        }
+      }
+    }
+  }
+  return { value: null, unit: '' };
+};
+
+export const parseSoilData = (fullText) => {
   const metadata = {
     laboratorio: '',
     proprietario: '',
@@ -61,29 +121,27 @@ export const parseSoilData = (text) => {
     sb: null, t: null, ctc: null, v: null, m: null
   };
 
+  // ── Metadados (usa texto completo) ──
   const findText = (regexes) => {
     for (const regex of regexes) {
-      const match = text.match(regex);
-      if (match && match[1]) {
-        return match[1].trim();
-      }
+      const match = fullText.match(regex);
+      if (match && match[1]) return match[1].trim();
     }
     return '';
   };
 
-  // Metadados
   metadata.proprietario = findText([
     /CLIENTE\s*:\s*([^\n]+)/i,
-    /Proprietário\s*:\s*([^\nCPF]+)/i,
+    /Propriet[áa]rio\s*:\s*([^\nCPF]+)/i,
     /Produtor\s*:\s*([^\n]+)/i
   ]);
 
   metadata.laboratorio = findText([
-    /LABORATÓRIO\s+DE\s+ANÁLISE[^\n]+/i,
-    /LABORATÓRIO[^\n]+/i
+    /LABORAT[ÓO]RIO\s+DE\s+AN[ÁA]LISE[^\n]+/i,
+    /LABORAT[ÓO]RIO[^\n]+/i
   ]) || 'Não Identificado';
   
-  if (metadata.laboratorio === 'Não Identificado' && text.includes('FULLIN')) {
+  if (metadata.laboratorio === 'Não Identificado' && fullText.includes('FULLIN')) {
     metadata.laboratorio = 'Fullin';
   }
 
@@ -101,143 +159,131 @@ export const parseSoilData = (text) => {
     /PROPRIEDADE\s*:\s*([^\n]+)/i,
     /Propriedade\s*:\s*([^\n]*)/i
   ]);
+  if (!metadata.propriedade) metadata.propriedade = '';
 
-  // Se a propriedade vier vazia da regex de Propriedade:
-  if (!metadata.propriedade) {
-    metadata.propriedade = '';
+  // ── Valores: usar SOMENTE a seção de resultados, linha por linha ──
+  const resultsText = stripReferenceSection(fullText);
+  const lines = resultsText.split('\n');
+
+  // Cada parâmetro: lista de regex para encontrar a linha, depois pega o último número dela
+  extracted.ph_agua = findLastNumberInLine(lines, [
+    /pH\s*(?:em\s*)?(?:H2O|H₂O|água|\(água\))/i,
+    /\bpH\b(?!\s*(?:CaCl|SMP))/i
+  ]);
+
+  extracted.ph_cacl2 = findLastNumberInLine(lines, [
+    /pH\s*(?:em\s*)?CaCl/i
+  ]);
+
+  extracted.mo = findLastNumberInLine(lines, [
+    /Mat[ée]ria\s+Org[âa]nica/i,
+    /\bM\.?O\.?\b/i
+  ]);
+
+  extracted.p_mehlich = findLastNumberInLine(lines, [
+    /F[óo]sforo\s+Mehlich/i,
+    /P\s*\(\s*Mehlich/i,
+    /F[óo]sforo(?!\s*(?:Resina|reman))/i,
+  ]);
+
+  extracted.p_resina = findLastNumberInLine(lines, [
+    /F[óo]sforo\s+Resina/i,
+    /P\s*\(?\s*Resina/i
+  ]);
+
+  extracted.k = findLastNumberInLine(lines, [
+    /Pot[áa]ssio/i,
+    /\bK\s*\(\s*Mehlich/i,
+  ]);
+
+  extracted.ca = findLastNumberInLine(lines, [
+    /C[áa]lcio/i,
+    /\bCa\s*\(/i,
+  ]);
+
+  extracted.mg = findLastNumberInLine(lines, [
+    /Magn[ée]sio/i,
+    /\bMg\s*\(/i,
+  ]);
+
+  extracted.al = findLastNumberInLine(lines, [
+    /Alum[ií]nio(?!\s*\(m)/i,
+    /Acidez\s+Troc[áa]vel/i,
+    /\bAl\s*\(\s*KCl/i,
+  ]);
+
+  extracted.h_al = findLastNumberInLine(lines, [
+    /H\s*\+\s*Al/i,
+    /Acidez\s+Potencial/i,
+  ]);
+
+  extracted.s = findLastNumberInLine(lines, [
+    /Enxofre/i,
+    /S-SO4/i,
+    /\bS\s*\(\s*Fosfato/i,
+  ]);
+
+  extracted.b = findLastNumberInLine(lines, [
+    /\bBoro\b/i,
+    /\bB\s*\(\s*[Áá]gua/i,
+  ]);
+
+  extracted.cu = findLastNumberInLine(lines, [
+    /\bCobre\b/i,
+    /\bCu\s*\(/i,
+  ]);
+
+  extracted.fe = findLastNumberInLine(lines, [
+    /\bFerro\b/i,
+    /\bFe\s*\(/i,
+  ]);
+
+  extracted.mn = findLastNumberInLine(lines, [
+    /Mangan[êe]s/i,
+    /\bMn\s*\(/i,
+  ]);
+
+  extracted.zn = findLastNumberInLine(lines, [
+    /\bZinco\b/i,
+    /\bZn\s*\(/i,
+  ]);
+
+  extracted.sb = findLastNumberInLine(lines, [
+    /Soma\s+de\s+Bases/i,
+    /\bS\.?B\.?\s*\(/i,
+  ]);
+
+  extracted.t = findLastNumberInLine(lines, [
+    /CTC\s+[Ee]fetiva/i,
+  ]);
+
+  extracted.ctc = findLastNumberInLine(lines, [
+    /CTC\s+(?:a\s+)?pH\s*7/i,
+    /CTC\s+Total/i,
+  ]);
+
+  extracted.v = findLastNumberInLine(lines, [
+    /Satura[çc][ãa]o\s+(?:de|por)\s+[Bb]ases/i,
+    /Sat\.\s+(?:de|por)\s+[Bb]ases/i,
+  ]);
+
+  extracted.m = findLastNumberInLine(lines, [
+    /Sat\.\s+Alum[ií]nio/i,
+    /Satura[çc][ãa]o\s+(?:de|por)?\s*Alum[ií]nio/i,
+  ]);
+
+  // Separar valores e unidades
+  const results = {};
+  const units = {};
+  for (const [key, entry] of Object.entries(extracted)) {
+    if (entry && typeof entry === 'object') {
+      results[key] = entry.value;
+      units[key] = entry.unit;
+    } else {
+      results[key] = entry;
+      units[key] = '';
+    }
   }
 
-  // Improved helper: looks for a pattern and returns the first captured group
-  // Supports formats where value is right after the key: "pH 5,5" or "pH ... 5.5"
-  const findValue = (regexes) => {
-    for (const regex of regexes) {
-      const match = text.match(regex);
-      if (match && match[1]) {
-        return match[1].replace(',', '.');
-      }
-    }
-    return null;
-  };
-
-  // To support the weird tabular format (pdf2) where we have values first then labels, 
-  // we would need spatial parsing, but we can try to catch common patterns.
-  // We use multiple regexes in order of precision.
-
-  extracted.ph_agua = findValue([
-    /pH\s*(?:em)?\s*H2O[^\d]*(\d+[,.]\d+)/i,
-    /pH\s*\(?água\)?[^\d]*(\d+[,.]\d+)/i,
-    /pH[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.ph_cacl2 = findValue([
-    /pH\s*CaCl2[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.mo = findValue([
-    /Mat[ée]ria Org[âa]nica[^\d]*(\d+[,.]\d+)/i,
-    /M\.?O\.?(?:\s*\(Oxi-Red\.\))?[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.p_mehlich = findValue([
-    /Fósforo Mehlich-?1?[^\d]*(\d+[,.]?\d*)/i,
-    /P \(Mehlich-1\)[^\d]*(\d+[,.]?\d*)/i,
-    /\bP\s*(?:mg\/dm3)?[^\d]*(\d+[,.]?\d*)/i,
-    /Fósforo[^\d]*(\d+[,.]?\d*)/i
-  ]);
-
-  extracted.p_resina = findValue([
-    /Fósforo Resina[^\d]*(\d+[,.]?\d*)/i,
-    /P \(?Resina\)?[^\d]*(\d+[,.]?\d*)/i
-  ]);
-
-  extracted.k = findValue([
-    /Potássio[^\d]*(\d+[,.]\d+)/i,
-    /K \(Mehlich-1\)[^\d]*(\d+[,.]\d+)/i,
-    /\bK\s*(?:mmolc\/dm3|mg\/dm3)?[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.ca = findValue([
-    /Cálcio[^\d]*(\d+[,.]\d+)/i,
-    /\bCa\b\s*\(Kcl[^\)]+\)[^\d]*(\d+[,.]\d+)/i,
-    /\bCa\s*(?:cmol[c]?\/dm3|mmolc\/dm3)?[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.mg = findValue([
-    /Magnésio[^\d]*(\d+[,.]\d+)/i,
-    /\bMg\b\s*\(Kcl[^\)]+\)[^\d]*(\d+[,.]\d+)/i,
-    /\bMg\s*(?:cmol[c]?\/dm3|mmolc\/dm3)?[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.al = findValue([
-    /Alumínio \(Acidez Trocável\)[^\d]*(\d+[,.]\d+)/i,
-    /\bAl\b\s*\(Kcl[^\)]+\)[^\d]*(\d+[,.]\d+)/i,
-    /Acidez Trocável \(Al\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.h_al = findValue([
-    /H\+Al \(Acidez Potencial\)[^\d]*(\d+[,.]\d+)/i,
-    /Acidez Potencial \(H \+ Al\)[^\d]*(\d+[,.]\d+)/i,
-    /H \+ Al[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.s = findValue([
-    /Enxofre[^\d]*(\d+[,.]\d+)/i,
-    /\bS\s*\(Fosfato[^\)]+\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.b = findValue([
-    /Boro[^\d]*(\d+[,.]\d+)/i,
-    /\bB\s*\(Água quente\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.cu = findValue([
-    /Cobre[^\d]*(\d+[,.]\d+)/i,
-    /\bCu\s*\(Mehlich[^\)]*\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.fe = findValue([
-    /Ferro[^\d]*(\d+[,.]\d+)/i,
-    /\bFe\s*\(Mehlich[^\)]*\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.mn = findValue([
-    /Manganês[^\d]*(\d+[,.]\d+)/i,
-    /\bMn\s*\(Mehlich[^\)]*\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.zn = findValue([
-    /Zinco[^\d]*(\d+[,.]\d+)/i,
-    /\bZn\s*\(Mehlich[^\)]*\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.sb = findValue([
-    /Soma de Bases \(SB\)[^\d]*(\d+[,.]\d+)/i,
-    /S\.B\. \(Soma de bases\)[^\d]*(\d+[,.]\d+)/i,
-    /Soma de Bases[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.t = findValue([
-    /CTC efetiva \(t\)[^\d]*(\d+[,.]\d+)/i,
-    /CTC Efetiva[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.ctc = findValue([
-    /CTC a pH 7,0 \(T\)[^\d]*(\d+[,.]\d+)/i,
-    /C\.T\.C\. \(C\.T\.C\.\)[^\d]*(\d+[,.]\d+)/i,
-    /CTC a pH 7[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.v = findValue([
-    /Saturação de bases \(V\)[^\d]*(\d+[,.]\d+)/i,
-    /V% \(Saturação de bases\)[^\d]*(\d+[,.]\d+)/i,
-    /Saturação por Bases \(V\)[^\d]*(\d+[,.]\d+)/i,
-    /Sat\. de Bases \(V%\)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  extracted.m = findValue([
-    /Sat\. Alumínio \(m\)[^\d]*(\d+[,.]\d+)/i,
-    /Saturação de Alumínio \( m \)[^\d]*(\d+[,.]\d+)/i
-  ]);
-
-  return { metadata, results: extracted };
+  return { metadata, results, units };
 };

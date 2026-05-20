@@ -10,6 +10,19 @@
 .talhoes-section { margin-top: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem; }
 .talhoes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .talhoes-header h4 { color: var(--color-text); }
+.plants-total-wrapper { display: flex; flex-direction: column; gap: 0.25rem; }
+.plants-total { font-size: 0.78rem; color: var(--color-text-muted); }
+.plants-total.danger { color: var(--color-danger, #dc2626); font-weight: 600; }
+.form-warning {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--radius-md);
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--color-danger, #dc2626);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
 
 .talhao-card {
   background: var(--color-surface);
@@ -36,6 +49,7 @@
 
 .property-card-header { display: flex; justify-content: space-between; align-items: center; }
 .property-card-header h3 { display: flex; align-items: center; gap: 0.5rem; color: var(--color-primary); }
+.property-card-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.25rem; }
 
 .talhao-count {
   font-size: 0.75rem;

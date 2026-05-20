@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, AlertCircle, UserPlus, CheckCircle } from 'lucide-react';
 import './Login.css';
@@ -72,8 +72,8 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card animate-fade-in login-card-wide">
         <div className="login-logo">
-          <img src="/favicon.png" alt="Solo Certo" className="login-icon" />
-          <h1>Solo Certo</h1>
+          <img src="/favicon.svg" alt="SoloCerto" className="login-icon" />
+          <h1>SoloCerto</h1>
           <p className="text-muted">Gestão Inteligente do Solo para Café Conilon</p>
         </div>
 

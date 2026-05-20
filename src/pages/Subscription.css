@@ -55,6 +55,45 @@
   font-size: 0.9rem;
 }
 
+.billing-cycle-selector {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0 0 1.5rem;
+}
+
+.billing-cycle-btn {
+  min-width: 130px;
+  min-height: 48px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  font-weight: 800;
+}
+
+.billing-cycle-btn small {
+  color: var(--color-accent);
+  font-size: 0.72rem;
+}
+
+.billing-cycle-btn.active {
+  color: white;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.billing-cycle-btn.active small {
+  color: rgba(255, 255, 255, 0.82);
+}
+
 /* Plans Grid */
 .plans-grid {
   display: grid;
@@ -109,7 +148,14 @@
 
 .plan-name {
   font-size: 1.25rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.plan-description {
+  min-height: 58px;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  margin-bottom: 0.9rem;
 }
 
 .plan-price {
@@ -148,6 +194,23 @@
   margin-bottom: 1rem;
 }
 
+.plan-limits {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.plan-limits span {
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .plan-features {
   list-style: none;
   padding: 0;
@@ -177,4 +240,27 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+.alert.danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+@media (max-width: 700px) {
+  .sub-status-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1.25rem;
+  }
+
+  .sub-status-card .btn {
+    width: 100%;
+  }
+
+  .billing-cycle-btn {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 0;
+  }
 }

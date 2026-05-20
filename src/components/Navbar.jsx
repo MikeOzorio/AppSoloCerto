@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Coffee, Settings, FileText, History as HistoryIcon, MapPin, Leaf, LogOut, Calculator, Users as UsersIcon, ChevronDown, Target, Moon, Sun, CreditCard, HeadphonesIcon } from 'lucide-react';
+import { Coffee, Settings, FileText, History as HistoryIcon, MapPin, Leaf, LogOut, Calculator, Users as UsersIcon, ChevronDown, Target, Moon, Sun, CreditCard, HeadphonesIcon, CheckSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import './Navbar.css';
@@ -14,8 +13,8 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="container nav-container">
         <Link to="/" className="nav-logo">
-          <img src="/favicon.png" alt="CoffeTI" className="nav-logo-img" />
-          <span>CoffeTI - Beta</span>
+          <img src="/favicon.svg" alt="SoloCerto" className="nav-logo-img" />
+          <span>SoloCerto</span>
         </Link>
         <div className="nav-links">
           <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
@@ -33,24 +32,26 @@ export default function Navbar() {
           </div>
 
           <div className="nav-dropdown">
-            <div className={`nav-link ${(location.pathname === '/analysis' || location.pathname === '/history' || location.pathname === '/fertilization' || location.pathname === '/reports') ? 'active' : ''}`}>
+            <div className={`nav-link ${(location.pathname === '/analysis' || location.pathname === '/history' || location.pathname === '/fertilization' || location.pathname === '/applications' || location.pathname === '/reports') ? 'active' : ''}`}>
               <FileText size={20} /> <span className="nav-label">Agronomia</span> <ChevronDown size={14} className="dropdown-arrow" />
             </div>
             <div className="dropdown-menu">
               <Link to="/analysis" className="dropdown-item"><FileText size={16} /> Análise de Solo</Link>
               <Link to="/history" className="dropdown-item"><HistoryIcon size={16} /> Histórico</Link>
               <Link to="/fertilization" className="dropdown-item"><Calculator size={16} /> Planejamento de Safra</Link>
+              <Link to="/applications" className="dropdown-item"><CheckSquare size={16} /> Aplica&ccedil;&otilde;es da Safra</Link>
               <Link to="/reports" className="dropdown-item"><FileText size={16} /> Relatórios Financeiros</Link>
             </div>
           </div>
 
           <div className="nav-dropdown">
-            <div className={`nav-link ${(location.pathname === '/settings' || location.pathname === '/recommendations') ? 'active' : ''}`}>
+            <div className={`nav-link ${(location.pathname === '/settings' || location.pathname === '/recommendations' || location.pathname === '/subscription-plans') ? 'active' : ''}`}>
               <Settings size={20} /> <span className="nav-label">Config</span> <ChevronDown size={14} className="dropdown-arrow" />
             </div>
             <div className="dropdown-menu">
               <Link to="/settings" className="dropdown-item"><Settings size={16} /> Parâmetros da Análise</Link>
               <Link to="/recommendations" className="dropdown-item"><Target size={16} /> Tabelas Produt.</Link>
+              {isAdmin && <Link to="/subscription-plans" className="dropdown-item"><CreditCard size={16} /> Planos de Assinatura</Link>}
             </div>
           </div>
 

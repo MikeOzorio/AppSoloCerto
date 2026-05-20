@@ -1,7 +1,22 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useSoil } from '../context/SoilContext';
 import { Plus, Trash2, MapPin, Calendar, Ruler, Leaf, ChevronDown, ChevronUp, Edit2, Save, X } from 'lucide-react';
 import './Properties.css';
+
+const toNumber = (value) => {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = Number(String(value).replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatInteger = (value) => Number(value || 0).toLocaleString('pt-BR', {
+  maximumFractionDigits: 0
+});
+
+const getTalhoesPlantTotal = (talhoes = []) => talhoes.reduce((total, talhao) => {
+  const talhaoTotal = (talhao.clones || []).reduce((sum, clone) => sum + toNumber(clone.quantidade), 0);
+  return total + talhaoTotal;
+}, 0);
 
 export default function Properties() {
   const { properties, clones, addProperty, updateProperty, removeProperty } = useSoil();
@@ -12,6 +27,7 @@ export default function Properties() {
   const emptyForm = {
     name: '',
     area: '',
+    plantCount: '',
     talhoes: []
   };
   const [form, setForm] = useState(emptyForm);
@@ -83,7 +99,22 @@ export default function Properties() {
   };
 
   const handleSave = () => {
-    if (!form.name.trim()) return;
+    const propertyPlants = toNumber(form.plantCount);
+    const talhoesPlants = getTalhoesPlantTotal(form.talhoes);
+
+    if (!form.name.trim()) {
+      alert('Informe o nome da propriedade.');
+      return;
+    }
+    if (propertyPlants <= 0) {
+      alert('Informe a quantidade total de plantas da propriedade.');
+      return;
+    }
+    if (talhoesPlants > propertyPlants) {
+      alert(`A soma de plantas dos talhões (${formatInteger(talhoesPlants)}) não pode passar da quantidade total da propriedade (${formatInteger(propertyPlants)}).`);
+      return;
+    }
+
     if (editingId) {
       if (!window.confirm('Deseja realmente editar esta propriedade?')) return;
       updateProperty(editingId, form);
@@ -99,7 +130,7 @@ export default function Properties() {
   };
 
   const handleEdit = (prop) => {
-    setForm({ name: prop.name, area: prop.area, talhoes: prop.talhoes || [] });
+    setForm({ name: prop.name, area: prop.area, plantCount: prop.plantCount ?? '', talhoes: prop.talhoes || [] });
     setEditingId(prop.id);
     setShowForm(true);
   };
@@ -114,6 +145,11 @@ export default function Properties() {
     const c = clones.find(cl => cl.id === cloneId);
     return c ? c.name : 'Clone desconhecido';
   };
+
+  const formPropertyPlants = toNumber(form.plantCount);
+  const formTalhoesPlants = getTalhoesPlantTotal(form.talhoes);
+  const hasPlantOverflow = formPropertyPlants > 0 && formTalhoesPlants > formPropertyPlants;
+  const saveDisabled = hasPlantOverflow;
 
   return (
     <div className="properties-page container animate-fade-in">
@@ -134,7 +170,7 @@ export default function Properties() {
         <div className="property-form card animate-fade-in">
           <h3>{editingId ? 'Editar Propriedade' : 'Nova Propriedade'}</h3>
           
-          <div className="form-row">
+          <div className="form-row-3">
             <div className="input-group">
               <label><MapPin size={14} /> Identificador / Nome</label>
               <input type="text" className="input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Ex: Fazenda São José" />
@@ -143,13 +179,28 @@ export default function Properties() {
               <label><Ruler size={14} /> Área Total (m²)</label>
               <input type="number" className="input" value={form.area} onChange={e => setForm({...form, area: e.target.value})} placeholder="50000" />
             </div>
+            <div className="input-group">
+              <label><Leaf size={14} /> Quantidade de plantas *</label>
+              <input type="number" min="1" step="1" required className="input" value={form.plantCount} onChange={e => setForm({...form, plantCount: e.target.value})} placeholder="4000" />
+            </div>
           </div>
 
           <div className="talhoes-section">
             <div className="talhoes-header">
-              <h4>Talhões</h4>
+              <div className="plants-total-wrapper">
+                <h4>Talhões</h4>
+                <span className={`plants-total ${hasPlantOverflow ? 'danger' : ''}`}>
+                  {formatInteger(formTalhoesPlants)} de {formatInteger(formPropertyPlants)} plantas vinculadas aos talhões
+                </span>
+              </div>
               <button className="btn-secondary btn-sm" onClick={handleAddTalhao}><Plus size={14} /> Adicionar Talhão</button>
             </div>
+
+            {hasPlantOverflow && (
+              <div className="form-warning">
+                A soma das plantas cadastradas nos talhões não pode ser maior que a quantidade total de plantas da propriedade.
+              </div>
+            )}
 
             {form.talhoes.map((talhao, tIdx) => (
               <div key={talhao.id} className="talhao-card">
@@ -198,7 +249,7 @@ export default function Properties() {
 
           <div className="form-actions">
             <button className="btn-secondary" onClick={handleCancel}><X size={16} /> Cancelar</button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={!form.name.trim()}><Save size={16} /> Salvar Propriedade</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saveDisabled}><Save size={16} /> Salvar Propriedade</button>
           </div>
         </div>
       )}
@@ -217,7 +268,10 @@ export default function Properties() {
           <div className="property-card-header">
             <div>
               <h3><MapPin size={18} /> {prop.name}</h3>
-              {prop.area && <span className="text-muted">{Number(prop.area).toLocaleString('pt-BR')} m²</span>}
+              <div className="property-card-meta">
+                {prop.area && <span className="text-muted">{Number(prop.area).toLocaleString('pt-BR')} m²</span>}
+                {prop.plantCount && <span className="text-muted">{formatInteger(prop.plantCount)} plantas</span>}
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <span className="talhao-count">{(prop.talhoes || []).length} talhão(ões)</span>
@@ -234,6 +288,7 @@ export default function Properties() {
                   <strong>{t.name || `Talhão #${idx+1}`}</strong>
                   <div className="talhao-meta">
                     {t.area && <span><Ruler size={12} /> {Number(t.area).toLocaleString('pt-BR')} m²</span>}
+                    <span><Leaf size={12} /> {formatInteger(getTalhoesPlantTotal([t]))} plantas</span>
                     {t.dataPlantio && <span><Calendar size={12} /> {t.dataPlantio}</span>}
                   </div>
                   {t.clones && t.clones.length > 0 && (
